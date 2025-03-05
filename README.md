@@ -41,3 +41,16 @@ An **HTML5 arcade game** featuring a **Pumpking** that collects crowns, avoids c
 ```bash
 git clone https://github.com/BasedCaveman/PumpKingGame.git
 cd PumpKingGame
+
+Credits
+	•	Developer: Based Caveman
+	•	Emojis: Provided by Unicode
+	•	Inspiration: Original “Pumpkin Panic” concept, adapted to Crown Collector mechanics.
+
+License
+
+MIT License (example)
+Copyright (c) 2023
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this 
+software and associated documentation files ...
