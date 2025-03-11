@@ -62,7 +62,7 @@
 
 <!-- Game Over Screen -->
 <div id="gameOverScreen">
-  <div id="gameOverMessage">RUGGED AGAIN</div>
+  <div id="gameOverMessage">RUGGED💀AGAIN</div>
   <div>Final Score: <span id="finalScoreValue">0</span></div>
   <div>High Score: <span id="highScoreValue">0</span></div>
   <div>Press SPACE to Play Again</div>
@@ -118,9 +118,9 @@ let rugs = [];
 let redHalo = null; // special item
 
 // Timers & spawn intervals
-let crownSpawnInterval = 40;  // frames between crown spawns
-let coinSpawnInterval = 80;
-let rugSpawnInterval = 500;   // bigger number = less frequent
+let crownSpawnInterval = 30;  // frames between crown spawns
+let coinSpawnInterval = 42;
+let rugSpawnInterval = 69;   // bigger number = less frequent
 let crownSpawnTimer = 0;
 let coinSpawnTimer = 0;
 let rugSpawnTimer = 0;
@@ -345,7 +345,7 @@ function spawnAndUpdateRugs() {
       rugs.splice(i, 1);
       i--;
       rugsAvoidedCount++;
-      if (rugsAvoidedCount >= 69) {
+      if (rugsAvoidedCount >= 10) {
         spawnRedHalo();
         rugsAvoidedCount = 0;
       }
@@ -359,7 +359,7 @@ function spawnRug() {
     y: -44,
     width: 44,
     height: 44,
-    speed: 4
+    speed: 8
   });
 }
 
@@ -382,7 +382,7 @@ function spawnAndUpdateRedHalo() {
 function spawnRedHalo() {
   if (!redHalo) {
     redHalo = {
-      x: Math.random() * (WIDTH - 28),
+      x: Math.random() * (WIDTH - 42),
       y: -32,
       width: 28,
       height: 28,
