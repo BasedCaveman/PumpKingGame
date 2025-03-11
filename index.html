@@ -2,34 +2,55 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Crown Collector (Mobile + Instructions)</title>
+  <title>Crown Collector (Mobile Improved UI)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     /* Basic Reset & Layout */
     html, body {
       margin: 0;
       padding: 0;
       background: #000;
+      /* We'll let #gameContainer define the size, no scrolling */
       overflow: hidden;
       font-family: sans-serif;
+      display: flex;
+      justify-content: center; /* Center the container horizontally */
+      align-items: center;     /* Center vertically if you want, or remove */
+      height: 100vh;           /* Let the container fill the vertical space */
     }
 
-    /* Game Canvas */
+    /* The fixed-size game container */
+    #gameContainer {
+      position: relative;
+      width: 450px;
+      height: 800px;
+      background: #111; /* or #000 if you prefer */
+      border: 2px solid #fff;
+      overflow: hidden; /* hide anything that goes outside container */
+    }
+
+    /* The actual game canvas (450×800) */
     #gameCanvas {
       display: block;
-      margin: 0 auto;
-      border: 2px solid #fff;
-      background: #111; /* Plain background for MVP */
-      /* We'll keep 450x800 from your last version as an example */
+      width: 450px;   /* match container width */
+      height: 800px;  /* match container height */
     }
 
-    /* Overlay UI */
-    #overlay {
+    /* Overlays within #gameContainer */
+    .overlay {
       position: absolute;
       top: 0; 
+      left: 0;
       width: 100%;
+      height: 100%;
       color: #fff;
       text-align: center;
+    }
+
+    /* Score overlay at the top */
+    #overlay {
       pointer-events: none;
+      z-index: 2;
     }
     #livesDisplay, #scoreDisplay {
       margin: 0.5em;
@@ -37,32 +58,14 @@
       text-shadow: 1px 1px 0 #000;
     }
 
-    /* Game Over Screen */
-    #gameOverScreen {
-      display: none;
-      position: absolute;
-      top: 30%;
-      width: 100%;
-      color: #fff;
-      font-size: 24px;
-      text-align: center;
-    }
-
-    /* ======== Instruction Overlay ======== */
+    /* Instructions overlay in front of everything initially */
     #instructionsOverlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.8);
-      color: #fff;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      text-align: center;
-      z-index: 9999; /* above everything */
+      background: rgba(0,0,0,0.8);
+      z-index: 999; /* above everything */
     }
     #instructionsOverlay button {
       margin-top: 1em;
@@ -71,90 +74,95 @@
       cursor: pointer;
     }
 
-    /* ======== Mobile Controls ======== */
-    /* Two buttons (left, right) at bottom corners */
+    /* Game Over Screen */
+    #gameOverScreen {
+      display: none;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 10;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-size: 24px;
+    }
+    #gameOverMessage {
+      margin-bottom: 1em;
+    }
+
+    /* Mobile Controls – two clickable halves at the bottom */
     #mobileControls {
       position: absolute;
       bottom: 0;
+      left: 0;
       width: 100%;
-      height: 100px; /* enough height for big buttons */
+      height: 40%; /* e.g. bottom 40% of container – adjust as you prefer */
+      z-index: 5;
       display: flex;
-      justify-content: space-between;
-      pointer-events: none; /* By default, off */
     }
-    .control-btn {
+    /* Each half is a clickable area */
+    .control-half {
       width: 50%;
-      background: rgba(255, 255, 255, 0.1);
-      pointer-events: auto; /* re-enable click/touch on the buttons */
+      height: 100%;
+      background: rgba(255,255,255,0.1);
     }
-    .control-btn:active {
-      background: rgba(255, 255, 255, 0.2);
-    }
-
-    /* Some styling for text inside the control buttons (optional) */
-    .control-btn span {
-      color: #fff;
-      font-size: 24px;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
+    .control-half:active {
+      background: rgba(255,255,255,0.2);
     }
   </style>
 </head>
 <body>
 
-<!-- Instruction Overlay -->
-<div id="instructionsOverlay">
-  <h1>Welcome to Crown Collector</h1>
-  <p>
-    Collect <strong>👑</strong> crowns<br><br>
-    Avoid <strong>🇷🇺 $MELANIA</strong>, <strong>♎ LIBRA</strong>, <strong>💸 PUMP FUN MEME's</strong><br>
-    and especially dodge the <strong>🧻 RUGS</strong>.<br><br>
-    Survive as long as possible!
-  </p>
-  <button id="startGameBtn">Start Game</button>
-</div>
+<div id="gameContainer">
 
-<!-- Main Canvas -->
-<canvas id="gameCanvas" width="450" height="800"></canvas>
-
-<!-- UI Overlays -->
-<div id="overlay">
-  <div id="livesDisplay">Lives: 3</div>
-  <div id="scoreDisplay">Score: 0</div>
-</div>
-
-<!-- Game Over Screen -->
-<div id="gameOverScreen">
-  <div id="gameOverMessage">RUGGED AGAIN</div>
-  <div>Final Score: <span id="finalScoreValue">0</span></div>
-  <div>High Score: <span id="highScoreValue">0</span></div>
-  <div>Press SPACE or tap "Start Game" to play again</div>
-</div>
-
-<!-- Mobile Controls -->
-<div id="mobileControls">
-  <div id="leftBtn" class="control-btn">
-    <span>⬅️</span>
+  <!-- Instruction Overlay (topmost) -->
+  <div id="instructionsOverlay" class="overlay">
+    <h1>Welcome to Crown Collector</h1>
+    <p style="max-width: 90%; margin: 0 auto;">
+      Collect <strong>👑</strong> crowns<br>
+      Avoid <strong>🇷🇺 $MELANIA</strong>, <strong>♎ LIBRA</strong>, 
+      <strong>💸 PUMP FUN MEME</strong> coins,<br>
+      and especially dodge the <strong>🧻 RUGS</strong>.<br><br>
+      Survive as long as possible!
+    </p>
+    <button id="startGameBtn">Start Game</button>
   </div>
-  <div id="rightBtn" class="control-btn">
-    <span>➡️</span>
+
+  <!-- The game canvas -->
+  <canvas id="gameCanvas" width="450" height="800"></canvas>
+
+  <!-- Top overlay for Lives & Score -->
+  <div id="overlay" class="overlay" style="z-index: 3;">
+    <div id="livesDisplay">Lives: 6</div>
+    <div id="scoreDisplay">Score: 0</div>
   </div>
+
+  <!-- Game Over Screen -->
+  <div id="gameOverScreen" class="overlay" style="display: flex;">
+    <div id="gameOverMessage">RUGGED AGAIN</div>
+    <div>
+      Final Score: <span id="finalScoreValue">0</span><br>
+      High Score: <span id="highScoreValue">0</span>
+    </div>
+    <div style="margin-top:1em;">Press SPACE or tap to play again</div>
+  </div>
+
+  <!-- Mobile Controls at bottom part of the container -->
+  <div id="mobileControls">
+    <!-- Left half for moving left -->
+    <div id="leftHalf" class="control-half"></div>
+    <!-- Right half for moving right -->
+    <div id="rightHalf" class="control-half"></div>
+  </div>
+
 </div>
 
 <script>
 /*  
-  Crown Collector with Red Halo - Mobile + Instruction Overlay
-  ============================================================
-
-  This version:
-  1. Displays instructions in an overlay (#instructionsOverlay) before starting.
-  2. Adds on-screen controls (#mobileControls) for mobile:
-     - #leftBtn => move left
-     - #rightBtn => move right
-  3. Preserves arrow key logic for desktop users.
+  Crown Collector (Improved UI) 
+  =============================
+  1. #gameContainer is 450x800, everything is inside it.
+  2. #mobileControls splits the bottom portion into leftHalf + rightHalf.
+  3. #instructionsOverlay inside gameContainer, not full window.
+  4. #gameOverScreen also inside container.
 */
 
 /*********************************
@@ -177,10 +185,10 @@ let player = {
   lives: 6
 };
 
-let score = 0;           
-let crownsCollected = 0; 
+let score = 0;
+let crownsCollected = 0;
 let rugsAvoidedCount = 0;
-let highScore = 0;       
+let highScore = 0;
 
 try {
   highScore = parseInt(localStorage.getItem('emojiCollectorHighScore')) || 0;
@@ -204,8 +212,8 @@ let rugSpawnTimer = 0;
 
 // Halo Mode
 let haloActive = false;
-let haloTimer = 0;       
-let haloCrownBuffer = 0; 
+let haloTimer = 0;
+let haloCrownBuffer = 0;
 
 /*********************************
  * Emojis
@@ -213,13 +221,12 @@ let haloCrownBuffer = 0;
 const EMOJI_PLAYER_NORMAL = "🎃";
 const EMOJI_PLAYER_HALO   = "💀⭕";
 const EMOJI_CROWN         = "👑";
-const EMOJI_COINS_LIBRA   = "♎"; 
+const EMOJI_COINS_LIBRA   = "♎";
 const EMOJI_COINS_MELANIA = "🇷🇺";
 const EMOJI_COINS_PF      = "💸";
 const EMOJI_RUG           = "🧻";
 const EMOJI_RED_HALO      = "⭕";
 
-// We'll make an array for coins
 const EMOJI_COINS = [EMOJI_COINS_LIBRA, EMOJI_COINS_MELANIA, EMOJI_COINS_PF];
 
 let playerEmoji = EMOJI_PLAYER_NORMAL;
@@ -228,14 +235,13 @@ let playerEmoji = EMOJI_PLAYER_NORMAL;
  * Input (Keyboard + Mobile Touch)
  *********************************/
 let keys = {};
-let gameStarted = false;
 let gameOver = false;
 
-// For mobile, track states
+// Mobile states
 let movingLeft = false;
 let movingRight = false;
 
-/************** KEYBOARD **************/
+// Keyboard events
 window.addEventListener('keydown', (e) => {
   if (gameOver && e.code === 'Space') {
     restartGame();
@@ -246,25 +252,24 @@ window.addEventListener('keyup', (e) => {
   keys[e.code] = false;
 });
 
-/************** MOBILE TOUCH **************/
-// Left Button
-const leftBtn = document.getElementById('leftBtn');
-leftBtn.addEventListener('touchstart', (e) => {
+// Mobile - Left half
+const leftHalf = document.getElementById('leftHalf');
+leftHalf.addEventListener('touchstart', (e) => {
   e.preventDefault();
   movingLeft = true;
 });
-leftBtn.addEventListener('touchend', (e) => {
+leftHalf.addEventListener('touchend', (e) => {
   e.preventDefault();
   movingLeft = false;
 });
 
-// Right Button
-const rightBtn = document.getElementById('rightBtn');
-rightBtn.addEventListener('touchstart', (e) => {
+// Mobile - Right half
+const rightHalf = document.getElementById('rightHalf');
+rightHalf.addEventListener('touchstart', (e) => {
   e.preventDefault();
   movingRight = true;
 });
-rightBtn.addEventListener('touchend', (e) => {
+rightHalf.addEventListener('touchend', (e) => {
   e.preventDefault();
   movingRight = false;
 });
@@ -274,7 +279,6 @@ rightBtn.addEventListener('touchend', (e) => {
  *********************************/
 const instructionsOverlay = document.getElementById('instructionsOverlay');
 const startGameBtn = document.getElementById('startGameBtn');
-
 startGameBtn.addEventListener('click', () => {
   instructionsOverlay.style.display = 'none';
   startGame();
@@ -283,7 +287,7 @@ startGameBtn.addEventListener('click', () => {
 function startGame() {
   // reset
   gameOver = false;
-  player.lives = 3;
+  player.lives = 6;
   score = 0;
   crownsCollected = 0;
   rugsAvoidedCount = 0;
@@ -295,10 +299,8 @@ function startGame() {
   haloTimer = 0;
   haloCrownBuffer = 0;
   playerEmoji = EMOJI_PLAYER_NORMAL;
-  
-  document.getElementById('gameOverScreen').style.display = 'none';
 
-  // Start loop
+  document.getElementById('gameOverScreen').style.display = 'none';
   requestAnimationFrame(updateGame);
 }
 
@@ -319,7 +321,6 @@ function updateGame() {
   if (haloActive) {
     haloTimer--;
     if (haloTimer <= 0) {
-      // End halo mode
       score += haloCrownBuffer;
       haloCrownBuffer = 0;
       haloActive = false;
@@ -343,7 +344,7 @@ function updateGame() {
  * Spawning & Movement
  *********************************/
 function handleInput() {
-  // Keyboard left/right
+  // Keyboard
   if (keys['ArrowLeft']) {
     player.x -= player.speed;
   }
@@ -351,7 +352,7 @@ function handleInput() {
     player.x += player.speed;
   }
 
-  // Mobile touch
+  // Mobile
   if (movingLeft) {
     player.x -= player.speed;
   }
@@ -370,12 +371,10 @@ function handleInput() {
 function spawnAndUpdateCrowns() {
   crownSpawnTimer++;
   const currentCrownInterval = (score >= 420) ? crownSpawnInterval * 2 : crownSpawnInterval;
-  
   if (crownSpawnTimer >= currentCrownInterval) {
     spawnCrown();
     crownSpawnTimer = 0;
   }
-
   for (let i = 0; i < crowns.length; i++) {
     let c = crowns[i];
     if (haloActive) {
@@ -406,7 +405,7 @@ function pullCrownToPlayer(c) {
   let py = player.y + player.height / 2;
   let dx = px - c.x;
   let dy = py - c.y;
-  let factor = 0.1; 
+  let factor = 0.1;
   c.x += dx * factor;
   c.y += dy * factor;
 }
@@ -443,7 +442,6 @@ function spawnCoin() {
 function spawnAndUpdateRugs() {
   rugSpawnTimer++;
   const currentRugInterval = (score >= 420) ? rugSpawnInterval / 2 : rugSpawnInterval;
-
   if (rugSpawnTimer >= currentRugInterval) {
     spawnRug();
     rugSpawnTimer = 0;
@@ -455,7 +453,7 @@ function spawnAndUpdateRugs() {
       rugs.splice(i, 1);
       i--;
       rugsAvoidedCount++;
-      if (rugsAvoidedCount >= 10) {
+      if (rugsAvoidedCount >= 69) {
         spawnRedHalo();
         rugsAvoidedCount = 0;
       }
@@ -469,7 +467,7 @@ function spawnRug() {
     y: -44,
     width: 44,
     height: 44,
-    speed: 6
+    speed: 4
   });
 }
 
@@ -503,7 +501,7 @@ function spawnRedHalo() {
 
 function activateHaloMode() {
   haloActive = true;
-  haloTimer = 120; // ~2 seconds
+  haloTimer = 120; // ~2s
   haloCrownBuffer = 0;
   playerEmoji = EMOJI_PLAYER_HALO;
 }
@@ -553,7 +551,7 @@ function checkCollisions() {
     }
   }
 
-  // Player vs Red Halo => halo mode
+  // Player vs Red Halo
   if (redHalo && rectCollision(player, redHalo)) {
     redHalo = null;
     activateHaloMode();
@@ -566,38 +564,25 @@ function checkCollisions() {
 function drawPlayer() {
   drawEmoji(playerEmoji, player.x, player.y, player.width);
 }
-
 function drawCrowns() {
-  crowns.forEach(c => {
-    drawEmoji(EMOJI_CROWN, c.x, c.y, c.width);
-  });
+  crowns.forEach(c => drawEmoji(EMOJI_CROWN, c.x, c.y, c.width));
 }
-
 function drawCoins() {
-  coins.forEach(coin => {
-    drawEmoji(coin.emoji, coin.x, coin.y, coin.width);
-  });
+  coins.forEach(coin => drawEmoji(coin.emoji, coin.x, coin.y, coin.width));
 }
-
 function drawRugs() {
-  rugs.forEach(rug => {
-    drawEmoji(EMOJI_RUG, rug.x, rug.y, rug.width);
-  });
+  rugs.forEach(rug => drawEmoji(EMOJI_RUG, rug.x, rug.y, rug.width));
 }
-
 function drawRedHalo() {
   if (redHalo) {
     drawEmoji(EMOJI_RED_HALO, redHalo.x, redHalo.y, redHalo.width);
   }
 }
 
-/**
- * Draws a single emoji on canvas at (x,y).
- * We treat (x,y) as the top-left corner by using textBaseline = "top".
- */
+/* Draw a single emoji at (x,y) with 'size' as font size */
 function drawEmoji(emoji, x, y, size) {
   ctx.font = `${size}px sans-serif`;
-  ctx.textBaseline = "top"; 
+  ctx.textBaseline = "top";
   ctx.fillText(emoji, x, y);
 }
 
@@ -627,16 +612,14 @@ function gameOverSequence() {
   document.getElementById('finalScoreValue').textContent = score;
   document.getElementById('highScoreValue').textContent = highScore;
 
-  document.getElementById('gameOverScreen').style.display = 'block';
-  document.getElementById('gameOverMessage').textContent = 'RUGGED AGAIN';
+  const gameOverScreen = document.getElementById('gameOverScreen');
+  gameOverScreen.style.display = 'flex';
 }
 
 function restartGame() {
-  // Show instructions again or just reset
   document.getElementById('gameOverScreen').style.display = 'none';
   startGame();
 }
 </script>
-
 </body>
 </html>
