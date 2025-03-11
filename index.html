@@ -109,7 +109,7 @@
 <div id="instructionsOverlay">
   <h1>Welcome to Crown Collector</h1>
   <p>
-    Collect <strong>👑</strong> crowns<br>
+    Collect <strong>👑</strong> crowns<br><br>
     Avoid <strong>🇷🇺 $MELANIA</strong>, <strong>♎ LIBRA</strong>, <strong>💸 PUMP FUN MEME's</strong><br>
     and especially dodge the <strong>🧻 RUGS</strong>.<br><br>
     Survive as long as possible!
@@ -283,7 +283,7 @@ startGameBtn.addEventListener('click', () => {
 function startGame() {
   // reset
   gameOver = false;
-  player.lives = 6;
+  player.lives = 3;
   score = 0;
   crownsCollected = 0;
   rugsAvoidedCount = 0;
@@ -455,7 +455,7 @@ function spawnAndUpdateRugs() {
       rugs.splice(i, 1);
       i--;
       rugsAvoidedCount++;
-      if (rugsAvoidedCount >= 69) {
+      if (rugsAvoidedCount >= 10) {
         spawnRedHalo();
         rugsAvoidedCount = 0;
       }
@@ -469,7 +469,7 @@ function spawnRug() {
     y: -44,
     width: 44,
     height: 44,
-    speed: 4
+    speed: 6
   });
 }
 
