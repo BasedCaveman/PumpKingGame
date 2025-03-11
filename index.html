@@ -110,10 +110,10 @@
     .control-half {
       width: 50%;
       height: 100%;
-      background: rgba(255,255,255,0.1);
+      background: rgba(0,0,0,0.1);
     }
     .control-half:active {
-      background: rgba(255,255,255,0.2);
+      background: rgba(0,0,0,0.2);
     }
   </style>
 </head>
@@ -213,9 +213,9 @@ let rugs = [];
 let redHalo = null; // special item
 
 // Timers & spawn intervals
-let crownSpawnInterval = 40;
-let coinSpawnInterval = 80;
-let rugSpawnInterval = 500;
+let crownSpawnInterval = 30;
+let coinSpawnInterval = 42;
+let rugSpawnInterval = 69;
 let crownSpawnTimer = 0;
 let coinSpawnTimer = 0;
 let rugSpawnTimer = 0;
@@ -464,7 +464,7 @@ function spawnAndUpdateRugs() {
       rugs.splice(i, 1);
       i--;
       rugsAvoidedCount++;
-      if (rugsAvoidedCount >= 69) {
+      if (rugsAvoidedCount >= 6) {
         spawnRedHalo();
         rugsAvoidedCount = 0;
       }
@@ -478,7 +478,7 @@ function spawnRug() {
     y: -44,
     width: 44,
     height: 44,
-    speed: 4
+    speed: 6
   });
 }
 
