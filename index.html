@@ -29,7 +29,7 @@
      ********************************************************/
     #gameContainer {
       position: relative;
-      width: 100vw; 
+      width: 100vw, 666px; 
       max-height: 100vh;
       /* Force a 9:16 aspect ratio: (9*50 = 450) : (16*50 = 800) */
       aspect-ratio: 9 / 16;
@@ -135,7 +135,7 @@
   </div>
 
   <!-- The game canvas (automatically scaled) -->
-  <canvas id="gameCanvas" width="450" height="800"></canvas>
+  <canvas id="gameCanvas" width="666" height="1184"></canvas>
 
   <!-- Score overlay at top -->
   <div id="overlay" class="overlay" style="z-index:3;">
@@ -179,9 +179,9 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// We'll still treat logical game width/height as 450x800:
-const WIDTH = canvas.width;   // 450
-const HEIGHT = canvas.height; // 800
+// We'll still treat logical game width/height as 666x1184:
+const WIDTH = canvas.width;   // 666
+const HEIGHT = canvas.height; // 1184
 
 /*********************************
  * Game Variables
