@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Crown Collector (Emoji MVP)</title>
+  <meta charset="UTF-8">
+  <title>Crown Collector (Mobile + Instructions)</title>
   <style>
     /* Basic Reset & Layout */
     html, body {
-      margin: 0; 
+      margin: 0;
       padding: 0;
       background: #000;
       overflow: hidden;
@@ -19,6 +19,7 @@
       margin: 0 auto;
       border: 2px solid #fff;
       background: #111; /* Plain background for MVP */
+      /* We'll keep 450x800 from your last version as an example */
     }
 
     /* Overlay UI */
@@ -30,7 +31,6 @@
       text-align: center;
       pointer-events: none;
     }
-
     #livesDisplay, #scoreDisplay {
       margin: 0.5em;
       font-size: 20px;
@@ -47,37 +47,114 @@
       font-size: 24px;
       text-align: center;
     }
+
+    /* ======== Instruction Overlay ======== */
+    #instructionsOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      z-index: 9999; /* above everything */
+    }
+    #instructionsOverlay button {
+      margin-top: 1em;
+      padding: 0.5em 1em;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    /* ======== Mobile Controls ======== */
+    /* Two buttons (left, right) at bottom corners */
+    #mobileControls {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 100px; /* enough height for big buttons */
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none; /* By default, off */
+    }
+    .control-btn {
+      width: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      pointer-events: auto; /* re-enable click/touch on the buttons */
+    }
+    .control-btn:active {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Some styling for text inside the control buttons (optional) */
+    .control-btn span {
+      color: #fff;
+      font-size: 24px;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
+
+<!-- Instruction Overlay -->
+<div id="instructionsOverlay">
+  <h1>Welcome to Crown Collector</h1>
+  <p>
+    Collect <strong>👑</strong> crowns<br>
+    Avoid <strong>🇷🇺 $MELANIA</strong>, <strong>♎ LIBRA</strong>, <strong>💸 PUMP FUN MEME's</strong><br>
+    and especially dodge the <strong>🧻 RUGS</strong>.<br><br>
+    Survive as long as possible!
+  </p>
+  <button id="startGameBtn">Start Game</button>
+</div>
 
 <!-- Main Canvas -->
 <canvas id="gameCanvas" width="450" height="800"></canvas>
 
 <!-- UI Overlays -->
 <div id="overlay">
-  <div id="livesDisplay">Lives: 3</div>
+  <div id="livesDisplay">Lives: 6</div>
   <div id="scoreDisplay">Score: 0</div>
 </div>
 
 <!-- Game Over Screen -->
 <div id="gameOverScreen">
-  <div id="gameOverMessage">RUGGED💀AGAIN</div>
+  <div id="gameOverMessage">RUGGED AGAIN</div>
   <div>Final Score: <span id="finalScoreValue">0</span></div>
   <div>High Score: <span id="highScoreValue">0</span></div>
-  <div>Press SPACE to Play Again</div>
+  <div>Press SPACE or tap "Start Game" to play again</div>
+</div>
+
+<!-- Mobile Controls -->
+<div id="mobileControls">
+  <div id="leftBtn" class="control-btn">
+    <span>⬅️</span>
+  </div>
+  <div id="rightBtn" class="control-btn">
+    <span>➡️</span>
+  </div>
 </div>
 
 <script>
 /*  
-  Crown Collector with Red Halo - Emoji Version (450×800 Canvas)
-  ==============================================================
+  Crown Collector with Red Halo - Mobile + Instruction Overlay
+  ============================================================
 
-  Adjustments:
-  - Canvas is now 450 wide x 800 tall (portrait).
-  - Player/object sizes slightly reduced or kept moderate to fit narrower width.
-  - Defined an array for coins to fix a spawning issue.
-  - Slightly increased speeds to accommodate taller screen.
+  This version:
+  1. Displays instructions in an overlay (#instructionsOverlay) before starting.
+  2. Adds on-screen controls (#mobileControls) for mobile:
+     - #leftBtn => move left
+     - #rightBtn => move right
+  3. Preserves arrow key logic for desktop users.
 */
 
 /*********************************
@@ -93,10 +170,10 @@ const HEIGHT = canvas.height; // 800
  *********************************/
 let player = {
   x: WIDTH / 2 - 24,
-  y: HEIGHT - 70,         // position near bottom
+  y: HEIGHT - 70,
   width: 48,
   height: 48,
-  speed: 6,               // horizontal movement speed
+  speed: 6,
   lives: 6
 };
 
@@ -118,9 +195,9 @@ let rugs = [];
 let redHalo = null; // special item
 
 // Timers & spawn intervals
-let crownSpawnInterval = 30;  // frames between crown spawns
-let coinSpawnInterval = 42;
-let rugSpawnInterval = 69;   // bigger number = less frequent
+let crownSpawnInterval = 40;
+let coinSpawnInterval = 80;
+let rugSpawnInterval = 500;
 let crownSpawnTimer = 0;
 let coinSpawnTimer = 0;
 let rugSpawnTimer = 0;
@@ -142,39 +219,70 @@ const EMOJI_COINS_PF      = "💸";
 const EMOJI_RUG           = "🧻";
 const EMOJI_RED_HALO      = "⭕";
 
-// Define array for coin emojis (fixing earlier spawn reference)
+// We'll make an array for coins
 const EMOJI_COINS = [EMOJI_COINS_LIBRA, EMOJI_COINS_MELANIA, EMOJI_COINS_PF];
 
 let playerEmoji = EMOJI_PLAYER_NORMAL;
 
 /*********************************
- * Input
+ * Input (Keyboard + Mobile Touch)
  *********************************/
 let keys = {};
+let gameStarted = false;
+let gameOver = false;
+
+// For mobile, track states
+let movingLeft = false;
+let movingRight = false;
+
+/************** KEYBOARD **************/
 window.addEventListener('keydown', (e) => {
-  keys[e.code] = true;
   if (gameOver && e.code === 'Space') {
     restartGame();
   }
+  keys[e.code] = true;
 });
 window.addEventListener('keyup', (e) => {
   keys[e.code] = false;
 });
 
-/*********************************
- * Game Over / State
- *********************************/
-let gameOver = false;
+/************** MOBILE TOUCH **************/
+// Left Button
+const leftBtn = document.getElementById('leftBtn');
+leftBtn.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  movingLeft = true;
+});
+leftBtn.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  movingLeft = false;
+});
+
+// Right Button
+const rightBtn = document.getElementById('rightBtn');
+rightBtn.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  movingRight = true;
+});
+rightBtn.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  movingRight = false;
+});
 
 /*********************************
- * Initialize
+ * Initialize / Start
  *********************************/
-window.addEventListener('load', () => {
+const instructionsOverlay = document.getElementById('instructionsOverlay');
+const startGameBtn = document.getElementById('startGameBtn');
+
+startGameBtn.addEventListener('click', () => {
+  instructionsOverlay.style.display = 'none';
   startGame();
 });
 
 function startGame() {
-  // Reset
+  // reset
+  gameOver = false;
   player.lives = 6;
   score = 0;
   crownsCollected = 0;
@@ -188,9 +296,9 @@ function startGame() {
   haloCrownBuffer = 0;
   playerEmoji = EMOJI_PLAYER_NORMAL;
   
-  gameOver = false;
   document.getElementById('gameOverScreen').style.display = 'none';
 
+  // Start loop
   requestAnimationFrame(updateGame);
 }
 
@@ -235,22 +343,32 @@ function updateGame() {
  * Spawning & Movement
  *********************************/
 function handleInput() {
+  // Keyboard left/right
   if (keys['ArrowLeft']) {
     player.x -= player.speed;
-    if (player.x < 0) player.x = 0;
   }
   if (keys['ArrowRight']) {
     player.x += player.speed;
-    if (player.x + player.width > WIDTH) {
-      player.x = WIDTH - player.width;
-    }
+  }
+
+  // Mobile touch
+  if (movingLeft) {
+    player.x -= player.speed;
+  }
+  if (movingRight) {
+    player.x += player.speed;
+  }
+
+  // Boundaries
+  if (player.x < 0) player.x = 0;
+  if (player.x + player.width > WIDTH) {
+    player.x = WIDTH - player.width;
   }
 }
 
 /* CROWNS */
 function spawnAndUpdateCrowns() {
   crownSpawnTimer++;
-  // After 420 points => spawn half as often, fall faster
   const currentCrownInterval = (score >= 420) ? crownSpawnInterval * 2 : crownSpawnInterval;
   
   if (crownSpawnTimer >= currentCrownInterval) {
@@ -263,11 +381,9 @@ function spawnAndUpdateCrowns() {
     if (haloActive) {
       pullCrownToPlayer(c);
     } else {
-      // Increase base speed a bit for a taller screen
       let baseSpeed = (score >= 420) ? c.speed * 1.8 : c.speed;
       c.y += baseSpeed;
     }
-    // remove offscreen
     if (c.y > HEIGHT + c.height) {
       crowns.splice(i, 1);
       i--;
@@ -276,7 +392,6 @@ function spawnAndUpdateCrowns() {
 }
 
 function spawnCrown() {
-  // slightly increased speed for a taller canvas
   crowns.push({
     x: Math.random() * (WIDTH - 28),
     y: -40,
@@ -287,7 +402,6 @@ function spawnCrown() {
 }
 
 function pullCrownToPlayer(c) {
-  // Move crown gradually toward player's center
   let px = player.x + player.width / 2;
   let py = player.y + player.height / 2;
   let dx = px - c.x;
@@ -315,7 +429,6 @@ function spawnAndUpdateCoins() {
 
 function spawnCoin() {
   let rnd = Math.floor(Math.random() * EMOJI_COINS.length);
-  // Increase base speed a bit
   coins.push({
     x: Math.random() * (WIDTH - 28),
     y: -32,
@@ -329,7 +442,6 @@ function spawnCoin() {
 /* RUGS */
 function spawnAndUpdateRugs() {
   rugSpawnTimer++;
-  // After 420 points => spawn rugs 2x as often
   const currentRugInterval = (score >= 420) ? rugSpawnInterval / 2 : rugSpawnInterval;
 
   if (rugSpawnTimer >= currentRugInterval) {
@@ -338,14 +450,12 @@ function spawnAndUpdateRugs() {
   }
   for (let i = 0; i < rugs.length; i++) {
     let r = rugs[i];
-    // Increase base speed slightly
     r.y += r.speed;
     if (r.y > HEIGHT + r.height) {
-      // The rug is avoided
       rugs.splice(i, 1);
       i--;
       rugsAvoidedCount++;
-      if (rugsAvoidedCount >= 10) {
+      if (rugsAvoidedCount >= 69) {
         spawnRedHalo();
         rugsAvoidedCount = 0;
       }
@@ -359,7 +469,7 @@ function spawnRug() {
     y: -44,
     width: 44,
     height: 44,
-    speed: 8
+    speed: 4
   });
 }
 
@@ -368,11 +478,9 @@ function spawnRug() {
  *********************************/
 function spawnAndUpdateRedHalo() {
   if (redHalo) {
-    // Zigzag movement
     redHalo.y += redHalo.speed;
     redHalo.angle += 0.1;
     redHalo.x += Math.sin(redHalo.angle) * redHalo.amplitude;
-    // If offscreen => remove it
     if (redHalo.y > HEIGHT + redHalo.height) {
       redHalo = null;
     }
@@ -382,7 +490,7 @@ function spawnAndUpdateRedHalo() {
 function spawnRedHalo() {
   if (!redHalo) {
     redHalo = {
-      x: Math.random() * (WIDTH - 42),
+      x: Math.random() * (WIDTH - 28),
       y: -32,
       width: 28,
       height: 28,
@@ -395,7 +503,7 @@ function spawnRedHalo() {
 
 function activateHaloMode() {
   haloActive = true;
-  haloTimer = 120;  // ~2 seconds at ~60fps
+  haloTimer = 120; // ~2 seconds
   haloCrownBuffer = 0;
   playerEmoji = EMOJI_PLAYER_HALO;
 }
@@ -412,7 +520,6 @@ function checkCollisions() {
       } else {
         score++;
         crownsCollected++;
-        // +1 life every 69 total crowns
         if (crownsCollected % 69 === 0) {
           player.lives++;
         }
@@ -436,7 +543,7 @@ function checkCollisions() {
     if (rectCollision(player, rugs[i])) {
       score = 0;
       player.lives--;
-      rugsAvoidedCount = 0; 
+      rugsAvoidedCount = 0;
       rugs.splice(i, 1);
       i--;
       if (player.lives <= 0) {
@@ -446,7 +553,7 @@ function checkCollisions() {
     }
   }
 
-  // Player vs Red Halo
+  // Player vs Red Halo => halo mode
   if (redHalo && rectCollision(player, redHalo)) {
     redHalo = null;
     activateHaloMode();
@@ -457,7 +564,6 @@ function checkCollisions() {
  * Drawing
  *********************************/
 function drawPlayer() {
-  // Keep player at 48px font size
   drawEmoji(playerEmoji, player.x, player.y, player.width);
 }
 
@@ -526,6 +632,8 @@ function gameOverSequence() {
 }
 
 function restartGame() {
+  // Show instructions again or just reset
+  document.getElementById('gameOverScreen').style.display = 'none';
   startGame();
 }
 </script>
