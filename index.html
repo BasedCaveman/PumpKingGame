@@ -14,7 +14,7 @@
       /* Let our container define the size. */
       overflow: hidden;
       font-family: sans-serif;
-      /* Center the container horizontally. */
+      /* Center the container horizontally & vertically. */
       display: flex;
       justify-content: center;
       align-items: center;
@@ -22,16 +22,13 @@
     }
 
     /********************************************************
-     * The key to responsiveness: 
-     *  - #gameContainer uses an aspect ratio of 9:16
-     *  - It scales to 100% width, 
-     *  - but also limited by 100vh so it doesn't exceed screen height
+     * #gameContainer: 9:16 aspect ratio,
+     * up to 666px wide, auto scales down for smaller screens.
      ********************************************************/
     #gameContainer {
       position: relative;
-      width: 100vw, 666px; 
+      width: min(100vw, 666px); 
       max-height: 100vh;
-      /* Force a 9:16 aspect ratio: (9*50 = 450) : (16*50 = 800) */
       aspect-ratio: 9 / 16;
 
       background: #111;
@@ -92,9 +89,21 @@
       justify-content: center;
       align-items: center;
       font-size: 24px;
+      padding: 1em;
+      box-sizing: border-box;
     }
     #gameOverMessage {
       margin-bottom: 1em;
+    }
+    /* A little spacing for the share link */
+    #shareXLink {
+      margin-top: 1em;
+      padding: 0.4em 0.8em;
+      background: #1d9bf0; /* Twitter color */
+      color: #fff;
+      text-decoration: none;
+      border-radius: 4px;
+      font-size: 18px;
     }
 
     /* Mobile Controls – two clickable halves at the bottom portion */
@@ -125,10 +134,10 @@
   <div id="instructionsOverlay" class="overlay">
     <h1>Welcome to Crown Collector</h1>
     <p style="max-width: 80%; margin: 0 auto;">
-      Collect <strong>👑</strong> crowns<br>
-      Avoid <strong>🇷🇺 $MELANIA</strong>, <strong>♎ LIBRA</strong>, 
-      <strong>💸 PUMP FUN MEME</strong> coins,<br>
-      and especially dodge the <strong>🧻 RUGS</strong>.<br><br>
+      Collect <strong>👑</strong> crowns for <strong>6.9 points</strong> each<br>
+      Every <strong>420</strong> points => <strong>+1 life</strong><br>
+      Avoid <strong>6</strong> coin hits => lose <strong>1 life</strong> + <strong>score=0</strong>,<br>
+      Dodge <strong>🧻 RUGS</strong> => lose <strong>1 life</strong> + <strong>score=0</strong>.<br>
       Survive as long as possible!
     </p>
     <button id="startGameBtn">Start Game</button>
@@ -150,6 +159,11 @@
       Final Score: <span id="finalScoreValue">0</span><br>
       High Score: <span id="highScoreValue">0</span>
     </div>
+    <div id="endStats" style="margin-top:1em; font-size:16px;">
+      <!-- we'll fill with rugs avoided, red halos, etc. -->
+    </div>
+    <!-- Share on X link -->
+    <a id="shareXLink" href="#" target="_blank">Share on X</a>
     <div style="margin-top:1em;">Press SPACE or tap to play again</div>
   </div>
 
@@ -165,12 +179,22 @@
 
 <script>
 /*  
-  Responsive Crown Collector
-  ===========================
-  - Maintains a 9:16 aspect ratio container that fits the screen width, 
-    ensuring the Pumpking never goes off-screen on smaller phones.
-  - If the phone's screen is shorter than 9:16, you'll see black bars or 
-    the container may be letterboxed, but the game remains fully playable.
+  Updated Crown Collector
+  =======================
+  Key changes:
+  1. Each coin collision => score=0. 
+     After 6 total coin collisions, lose 1 life + reset coinHits=0.
+  2. Each rug collision => lose 1 life + score=0.
+  3. Each crown => +6.9 points. 
+  4. Every 420 points => +1 life (can trigger multiple times if you cross multiple 420 thresholds).
+  5. Track: 
+     - rugsAvoidedCount
+     - redHaloCollected
+  6. On Game Over, "Share on X" link with final stats:
+     - finalScore
+     - highScore
+     - rugs avoided
+     - red halos collected
 */
 
 /*********************************
@@ -192,13 +216,16 @@ let player = {
   width: 48,
   height: 48,
   speed: 6,
-  lives: 6
+  lives: 3
 };
 
 let score = 0;
 let crownsCollected = 0;
 let rugsAvoidedCount = 0;
 let highScore = 0;
+let coinHits = 0;            // new: count coin collisions
+let redHaloCollected = 0;    // track how many red halos we’ve collected
+let nextLifeThreshold = 420; // each time we cross 420, +1 life, then +420
 
 try {
   highScore = parseInt(localStorage.getItem('emojiCollectorHighScore')) || 0;
@@ -299,9 +326,15 @@ function startGame() {
   // reset
   gameOver = false;
   player.lives = 3;
+  player.x = WIDTH / 2 - 24;
+  coinHits = 0;
+  redHaloCollected = 0;
+  nextLifeThreshold = 420;
+
   score = 0;
   crownsCollected = 0;
   rugsAvoidedCount = 0;
+
   crowns = [];
   coins = [];
   rugs = [];
@@ -332,6 +365,7 @@ function updateGame() {
   if (haloActive) {
     haloTimer--;
     if (haloTimer <= 0) {
+      // End halo mode
       score += haloCrownBuffer;
       haloCrownBuffer = 0;
       haloActive = false;
@@ -340,6 +374,9 @@ function updateGame() {
   }
 
   checkCollisions();
+
+  // Check if we’ve passed a 420 threshold => +1 life
+  maybeAddLifeFromScore();
 
   drawPlayer();
   drawCrowns();
@@ -378,10 +415,12 @@ function handleInput() {
   }
 }
 
-/* CROWNS */
 function spawnAndUpdateCrowns() {
   crownSpawnTimer++;
-  const currentCrownInterval = (score >= 420) ? crownSpawnInterval * 2 : crownSpawnInterval;
+  const currentCrownInterval = (score >= 420) 
+    ? crownSpawnInterval * 2 
+    : crownSpawnInterval;
+
   if (crownSpawnTimer >= currentCrownInterval) {
     spawnCrown();
     crownSpawnTimer = 0;
@@ -391,6 +430,7 @@ function spawnAndUpdateCrowns() {
     if (haloActive) {
       pullCrownToPlayer(c);
     } else {
+      // speed up if score >= 420
       let baseSpeed = (score >= 420) ? c.speed * 1.8 : c.speed;
       c.y += baseSpeed;
     }
@@ -421,7 +461,6 @@ function pullCrownToPlayer(c) {
   c.y += dy * factor;
 }
 
-/* COINS */
 function spawnAndUpdateCoins() {
   coinSpawnTimer++;
   if (coinSpawnTimer >= coinSpawnInterval) {
@@ -449,10 +488,12 @@ function spawnCoin() {
   });
 }
 
-/* RUGS */
 function spawnAndUpdateRugs() {
   rugSpawnTimer++;
-  const currentRugInterval = (score >= 420) ? rugSpawnInterval / 2 : rugSpawnInterval;
+  const currentRugInterval = (score >= 420) 
+    ? rugSpawnInterval / 2 
+    : rugSpawnInterval;
+
   if (rugSpawnTimer >= currentRugInterval) {
     spawnRug();
     rugSpawnTimer = 0;
@@ -461,13 +502,10 @@ function spawnAndUpdateRugs() {
     let r = rugs[i];
     r.y += r.speed;
     if (r.y > HEIGHT + r.height) {
+      // avoided
       rugs.splice(i, 1);
       i--;
       rugsAvoidedCount++;
-      if (rugsAvoidedCount >= 6) {
-        spawnRedHalo();
-        rugsAvoidedCount = 0;
-      }
     }
   }
 }
@@ -496,6 +534,10 @@ function spawnAndUpdateRedHalo() {
   }
 }
 
+/* Example of how you might spawn the halo. 
+   If you want it from rugs avoided, you can 
+   handle that logic above. 
+*/
 function spawnRedHalo() {
   if (!redHalo) {
     redHalo = {
@@ -512,9 +554,10 @@ function spawnRedHalo() {
 
 function activateHaloMode() {
   haloActive = true;
-  haloTimer = 120;
+  haloTimer = 120;  // ~2 seconds
   haloCrownBuffer = 0;
   playerEmoji = EMOJI_PLAYER_HALO;
+  redHaloCollected++; // track how many times we've collected halo
 }
 
 /*********************************
@@ -525,34 +568,43 @@ function checkCollisions() {
   for (let i = 0; i < crowns.length; i++) {
     if (rectCollision(player, crowns[i])) {
       if (haloActive) {
-        haloCrownBuffer++;
+        // store in buffer, not immediate
+        haloCrownBuffer += 6.9; 
       } else {
-        score++;
-        crownsCollected++;
-        if (crownsCollected % 69 === 0) {
-          player.lives++;
-        }
+        // each crown = 6.9 points
+        score += 6.9;
       }
+      crownsCollected++;
       crowns.splice(i, 1);
       i--;
     }
   }
 
-  // Player vs Coins => reset score
+  // Player vs Coins => reset score=0, track coinHits
   for (let i = 0; i < coins.length; i++) {
     if (rectCollision(player, coins[i])) {
-      score = 0;
+      score = 0; 
+      coinHits++;
       coins.splice(i, 1);
       i--;
+
+      // if 6 coinHits => lose 1 life, reset coinHits
+      if (coinHits >= 6) {
+        coinHits = 0;
+        player.lives--;
+        if (player.lives <= 0) {
+          gameOverSequence();
+          return;
+        }
+      }
     }
   }
 
-  // Player vs Rug => reset score, lose life
+  // Player vs Rug => lose 1 life, reset score=0
   for (let i = 0; i < rugs.length; i++) {
     if (rectCollision(player, rugs[i])) {
       score = 0;
       player.lives--;
-      rugsAvoidedCount = 0;
       rugs.splice(i, 1);
       i--;
       if (player.lives <= 0) {
@@ -562,10 +614,21 @@ function checkCollisions() {
     }
   }
 
-  // Player vs Red Halo
+  // Player vs Red Halo => activate halo
   if (redHalo && rectCollision(player, redHalo)) {
     redHalo = null;
     activateHaloMode();
+  }
+}
+
+/*********************************
+ * LIFE FROM SCORE
+ *********************************/
+function maybeAddLifeFromScore() {
+  // If we cross nextLifeThreshold => +1 life, nextLifeThreshold += 420
+  while (score >= nextLifeThreshold) {
+    player.lives++;
+    nextLifeThreshold += 420;
   }
 }
 
@@ -610,21 +673,43 @@ function rectCollision(a, b) {
 }
 
 function updateUI() {
+  // Round the displayed score
   document.getElementById('livesDisplay').textContent = 'Lives: ' + player.lives;
-  document.getElementById('scoreDisplay').textContent = 'Score: ' + score;
+  document.getElementById('scoreDisplay').textContent = 'Score: ' + Math.floor(score);
 }
 
 function gameOverSequence() {
   gameOver = true;
+  // update highScore
   if (score > highScore) {
     highScore = score;
     localStorage.setItem('emojiCollectorHighScore', highScore);
   }
-  document.getElementById('finalScoreValue').textContent = score;
-  document.getElementById('highScoreValue').textContent = highScore;
+  // Show final scoreboard
+  document.getElementById('finalScoreValue').textContent = Math.floor(score);
+  document.getElementById('highScoreValue').textContent = Math.floor(highScore);
 
-  const gameOverScreen = document.getElementById('gameOverScreen');
-  gameOverScreen.style.display = 'flex';
+  // Show additional stats: rugsAvoided, redHaloCollected
+  const statsText = `
+    Rugs Avoided: ${rugsAvoidedCount} <br>
+    Red Halos Collected: ${redHaloCollected}
+  `;
+  document.getElementById('endStats').innerHTML = statsText;
+
+  // Build shareable X link
+  // We'll pass: finalScore, highScore, rugsAvoidedCount, redHaloCollected
+  const tweetText = `I scored ${Math.floor(score)} in Crown Collector! 
+High Score: ${Math.floor(highScore)} 
+Rugs avoided: ${rugsAvoidedCount}, 
+Red Halos: ${redHaloCollected}.
+Check out my final stats! #CrownCollectorGame`;
+
+  const shareUrl = 'https://twitter.com/intent/tweet?text=' 
+    + encodeURIComponent(tweetText);
+
+  document.getElementById('shareXLink').href = shareUrl;
+
+  document.getElementById('gameOverScreen').style.display = 'flex';
 }
 
 function restartGame() {
