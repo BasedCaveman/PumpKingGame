@@ -2,8 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Crown Collector (Updated Mechanics)</title>
-  <!-- Helps mobile browsers scale the page properly -->
+  <title>Crown Collector (Single-run Peak + Final Score)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
   <style>
     /* Basic Reset & Layout */
@@ -30,7 +29,7 @@
       overflow: hidden; 
     }
 
-    /* Canvas scaled to fill container, but logic is 666x1184 */
+    /* Canvas scaled to fill container, logic is 666x1184 */
     #gameCanvas {
       width: 100%;
       height: 100%;
@@ -116,25 +115,25 @@
 
   <!-- Instruction Overlay -->
   <div id="instructionsOverlay" class="overlay">
-    <h1>Welcome to Crown Collector</h1>
+    <h1>Crown Collector</h1>
     <p style="max-width: 80%; margin: 0 auto;">
-      - Every Crown (👑) = +6.9 points<br>
-      - Coin collisions => Score = 0;<br>
-        after 6 collisions => lose 1 life<br>
-      - Rug collision => lose 1 life, Score = 0<br>
-      - <strong>If you lose your LAST life, your Score is kept!</strong><br>
-      - Avoid 6 Rugs => Red Halo spawns<br>
-      - Every 420 points => +1 Life
+      - You start with <strong>1 life</strong>.<br>
+      - Crown (👑) => +6.9 points<br>
+      - Coin collision => score=0; after 6 coin hits => lose 1 life<br>
+      - Rug collision => lose 1 life, score=0 if not lethal<br>
+      - Avoid <strong>30</strong> rugs => Red Halo spawns<br>
+      - After <strong>420</strong> points => triple coins & rugs spawn, double crowns spawn & speed<br>
+      - Final scoreboard shows your <strong>peak score</strong> reached and <strong>final score</strong> at death
     </p>
     <button id="startGameBtn">Start Game</button>
   </div>
 
-  <!-- The game canvas -->
+  <!-- The game canvas (666×1184) -->
   <canvas id="gameCanvas" width="666" height="1184"></canvas>
 
   <!-- Score overlay at top -->
   <div id="overlay" class="overlay" style="z-index:3;">
-    <div id="livesDisplay">Lives: 3</div>
+    <div id="livesDisplay">Lives: 1</div>
     <div id="scoreDisplay">Score: 0</div>
   </div>
 
@@ -143,13 +142,13 @@
     <div id="gameOverMessage">RUGGED AGAIN</div>
     <div>
       Final Score: <span id="finalScoreValue">0</span><br>
-      High Score: <span id="highScoreValue">0</span>
+      Peak Score: <span id="peakScoreValue">0</span>
     </div>
     <div id="endStats" style="margin-top:1em; font-size:16px;"></div>
     <div style="margin-top:1em;">Press SPACE or tap to play again</div>
   </div>
 
-  <!-- Mobile Controls at bottom half -->
+  <!-- Mobile Controls -->
   <div id="mobileControls">
     <div id="leftHalf" class="control-half"></div>
     <div id="rightHalf" class="control-half"></div>
@@ -158,13 +157,16 @@
 </div>
 
 <script>
-/*  
-  Crown Collector with 
-  - 6 coin hits => lose 1 life
-  - Score resets on collisions only if it doesn't kill you
-  - Red Halo every 6 rugs avoided
-  - 420 points => +1 life 
-  - Keep final score if last life is lost
+/*
+  Crown Collector
+  ==============
+  - Start with 1 life
+  - Coin collision => score=0; after 6 hits => lose 1 life
+  - Rug collision => lose 1 life, if not lethal => score=0
+  - After 420 points => triple coin & rug spawn, double crown spawn & speed
+  - Red Halo every 30 rugs avoided
+  - We track "score" and "peakScore" for the run
+  - Final scoreboard displays "Final Score" (score at last life) and "Peak Score"
 */
 
 /*********************************
@@ -172,10 +174,8 @@
  *********************************/
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-
-// Logical size: 666x1184
-const WIDTH = canvas.width;   
-const HEIGHT = canvas.height; 
+const WIDTH = canvas.width;  // 666
+const HEIGHT = canvas.height; // 1184
 
 /*********************************
  * Game Variables
@@ -186,67 +186,57 @@ let player = {
   width: 48,
   height: 48,
   speed: 6,
-  lives: 3
+  lives: 1
 };
 
 let score = 0;
-let highScore = 0;
+let peakScore = 0;  // track highest score this run
+
 let crownsCollected = 0;
 let rugsAvoidedCount = 0;
 let coinHits = 0;
 let redHaloCollected = 0;
-let nextLifeThreshold = 420;
+let gameOver = false;
 
-try {
-  highScore = parseInt(localStorage.getItem('emojiCollectorHighScore')) || 0;
-} catch(e) {
-  highScore = 0;
-}
+// Base intervals
+let baseCrownSpawnInterval = 30;
+let baseCoinSpawnInterval  = 42;
+let baseRugSpawnInterval   = 69;
 
-// Arrays
-let crowns = [];
-let coins = [];
-let rugs = [];
-let redHalo = null;
+// Current intervals
+let crownSpawnInterval = baseCrownSpawnInterval;
+let coinSpawnInterval  = baseCoinSpawnInterval;
+let rugSpawnInterval   = baseRugSpawnInterval;
 
 // Timers
-let crownSpawnInterval = 30;
-let coinSpawnInterval = 42;
-let rugSpawnInterval = 69;
 let crownSpawnTimer = 0;
 let coinSpawnTimer = 0;
 let rugSpawnTimer = 0;
 
-// Halo Mode
+let difficultyUp = false; // after 420 points
 let haloActive = false;
 let haloTimer = 0;
 let haloCrownBuffer = 0;
-
-let keys = {};
-let gameOver = false;
-let movingLeft = false;
-let movingRight = false;
 
 /*********************************
  * Emojis
  *********************************/
 const EMOJI_PLAYER_NORMAL = "🎃";
 const EMOJI_PLAYER_HALO   = "💀⭕";
-const EMOJI_CROWN         = "👑";
-const EMOJI_COINS_LIBRA   = "♎";
-const EMOJI_COINS_MELANIA = "🇷🇺";
-const EMOJI_COINS_PF      = "💸";
+const EMOJI_COIN_VARIANTS = ["♎","🇷🇺","💸"];
 const EMOJI_RUG           = "🧻";
 const EMOJI_RED_HALO      = "⭕";
-
-const EMOJI_COINS = [EMOJI_COINS_LIBRA, EMOJI_COINS_MELANIA, EMOJI_COINS_PF];
 
 let playerEmoji = EMOJI_PLAYER_NORMAL;
 
 /*********************************
- * Input Events
+ * Input (Keyboard + Mobile)
  *********************************/
-// Desktop keyboard
+let keys = {};
+let movingLeft = false;
+let movingRight = false;
+
+// Desktop
 window.addEventListener('keydown', (e) => {
   if (gameOver && e.code === 'Space') {
     restartGame();
@@ -257,7 +247,7 @@ window.addEventListener('keyup', (e) => {
   keys[e.code] = false;
 });
 
-// Mobile touch
+// Mobile
 const leftHalf = document.getElementById('leftHalf');
 leftHalf.addEventListener('touchstart', (e) => {
   e.preventDefault();
@@ -267,6 +257,7 @@ leftHalf.addEventListener('touchend', (e) => {
   e.preventDefault();
   movingLeft = false;
 });
+
 const rightHalf = document.getElementById('rightHalf');
 rightHalf.addEventListener('touchstart', (e) => {
   e.preventDefault();
@@ -278,7 +269,7 @@ rightHalf.addEventListener('touchend', (e) => {
 });
 
 /*********************************
- * Initialize / Start
+ * Initialization
  *********************************/
 const instructionsOverlay = document.getElementById('instructionsOverlay');
 const startGameBtn = document.getElementById('startGameBtn');
@@ -288,26 +279,32 @@ startGameBtn.addEventListener('click', () => {
 });
 
 function startGame() {
-  // reset
   gameOver = false;
-  player.lives = 3;
+  player.lives = 1;
   player.x = WIDTH / 2 - 24;
-
+  
   score = 0;
-  coinHits = 0;
+  peakScore = 0;
   crownsCollected = 0;
   rugsAvoidedCount = 0;
+  coinHits = 0;
   redHaloCollected = 0;
-  nextLifeThreshold = 420;
+  difficultyUp = false;
 
   crowns = [];
   coins = [];
   rugs = [];
   redHalo = null;
+
   haloActive = false;
   haloTimer = 0;
   haloCrownBuffer = 0;
   playerEmoji = EMOJI_PLAYER_NORMAL;
+
+  // reset intervals
+  crownSpawnInterval = baseCrownSpawnInterval;
+  coinSpawnInterval  = baseCoinSpawnInterval;
+  rugSpawnInterval   = baseRugSpawnInterval;
 
   document.getElementById('gameOverScreen').style.display = 'none';
   requestAnimationFrame(updateGame);
@@ -322,6 +319,8 @@ function updateGame() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
   handleInput();
+  checkDifficulty();
+
   spawnAndUpdateCrowns();
   spawnAndUpdateCoins();
   spawnAndUpdateRugs();
@@ -335,24 +334,33 @@ function updateGame() {
       haloCrownBuffer = 0;
       haloActive = false;
       playerEmoji = EMOJI_PLAYER_NORMAL;
+      updatePeakScore();
     }
   }
 
   checkCollisions();
-  maybeAddLifeFromScore();
-
-  drawPlayer();
-  drawCrowns();
-  drawCoins();
-  drawRugs();
-  drawRedHalo();
-
+  drawEverything();
   updateUI();
+  
   requestAnimationFrame(updateGame);
 }
 
 /*********************************
- * Movement & Spawning
+ * Difficulty after 420
+ *********************************/
+function checkDifficulty() {
+  if (!difficultyUp && score >= 420) {
+    difficultyUp = true;
+    // triple coin & rug frequency
+    coinSpawnInterval = coinSpawnInterval / 3;
+    rugSpawnInterval  = rugSpawnInterval  / 3;
+    // double crown spawn frequency
+    crownSpawnInterval = crownSpawnInterval / 2;
+  }
+}
+
+/*********************************
+ * Movement
  *********************************/
 function handleInput() {
   // Keyboard
@@ -369,20 +377,19 @@ function handleInput() {
   if (movingRight) {
     player.x += player.speed;
   }
-
-  // boundaries
+  // Boundaries
   if (player.x < 0) player.x = 0;
   if (player.x + player.width > WIDTH) {
     player.x = WIDTH - player.width;
   }
 }
 
-/* Crown logic */
+/*********************************
+ * Spawning & Updating Objects
+ *********************************/
 function spawnAndUpdateCrowns() {
   crownSpawnTimer++;
-  const currentCrownInterval = score >= 420 ? crownSpawnInterval * 2 : crownSpawnInterval;
-
-  if (crownSpawnTimer >= currentCrownInterval) {
+  if (crownSpawnTimer >= crownSpawnInterval) {
     spawnCrown();
     crownSpawnTimer = 0;
   }
@@ -391,7 +398,8 @@ function spawnAndUpdateCrowns() {
     if (haloActive) {
       pullCrownToPlayer(c);
     } else {
-      let speedFactor = (score >= 420) ? c.speed * 1.8 : c.speed;
+      // double speed if difficultyUp
+      let speedFactor = difficultyUp ? c.speed * 2 : c.speed;
       c.y += speedFactor;
     }
     if (c.y > HEIGHT + c.height) {
@@ -401,12 +409,14 @@ function spawnAndUpdateCrowns() {
   }
 }
 function spawnCrown() {
+  // base speed=4, if difficultyUp => spawn with speed=8
+  let baseSpeed = difficultyUp ? 8 : 4; 
   crowns.push({
     x: Math.random() * (WIDTH - 28),
     y: -40,
     width: 28,
     height: 28,
-    speed: 4
+    speed: baseSpeed
   });
 }
 function pullCrownToPlayer(c) {
@@ -418,7 +428,6 @@ function pullCrownToPlayer(c) {
   c.y += dy * 0.1;
 }
 
-/* Coins logic */
 function spawnAndUpdateCoins() {
   coinSpawnTimer++;
   if (coinSpawnTimer >= coinSpawnInterval) {
@@ -434,22 +443,20 @@ function spawnAndUpdateCoins() {
   }
 }
 function spawnCoin() {
-  let rnd = Math.floor(Math.random() * EMOJI_COINS.length);
+  let rnd = Math.floor(Math.random() * EMOJI_COIN_VARIANTS.length);
   coins.push({
     x: Math.random() * (WIDTH - 28),
     y: -32,
     width: 28,
     height: 28,
     speed: 6 + Math.random(),
-    emoji: EMOJI_COINS[rnd]
+    emoji: EMOJI_COIN_VARIANTS[rnd]
   });
 }
 
-/* Rugs logic */
 function spawnAndUpdateRugs() {
   rugSpawnTimer++;
-  const currentRugInterval = score >= 420 ? rugSpawnInterval / 2 : rugSpawnInterval;
-  if (rugSpawnTimer >= currentRugInterval) {
+  if (rugSpawnTimer >= rugSpawnInterval) {
     spawnRug();
     rugSpawnTimer = 0;
   }
@@ -461,8 +468,8 @@ function spawnAndUpdateRugs() {
       rugs.splice(i, 1);
       i--;
       rugsAvoidedCount++;
-      // => every 6 rugs avoided => spawn halo
-      if (rugsAvoidedCount >= 6) {
+      // after 30 rugs => halo
+      if (rugsAvoidedCount >= 30) {
         spawnRedHalo();
         rugsAvoidedCount = 0;
       }
@@ -482,6 +489,16 @@ function spawnRug() {
 /*********************************
  * Red Halo
  *********************************/
+function spawnAndUpdateRedHalo() {
+  if (redHalo) {
+    redHalo.y += redHalo.speed;
+    redHalo.angle += 0.1;
+    redHalo.x += Math.sin(redHalo.angle) * redHalo.amplitude;
+    if (redHalo.y > HEIGHT + redHalo.height) {
+      redHalo = null;
+    }
+  }
+}
 function spawnRedHalo() {
   if (!redHalo) {
     redHalo = {
@@ -495,21 +512,11 @@ function spawnRedHalo() {
     };
   }
 }
-function spawnAndUpdateRedHalo() {
-  if (redHalo) {
-    redHalo.y += redHalo.speed;
-    redHalo.angle += 0.1;
-    redHalo.x += Math.sin(redHalo.angle) * redHalo.amplitude;
-    if (redHalo.y > HEIGHT + redHalo.height) {
-      redHalo = null;
-    }
-  }
-}
 function activateHaloMode() {
   haloActive = true;
-  haloTimer = 120; // ~2s
+  haloTimer = 120; // 2s
   haloCrownBuffer = 0;
-  playerEmoji = EMOJI_PLAYER_HALO;
+  playerEmoji = "💀⭕"; 
   redHaloCollected++;
 }
 
@@ -517,13 +524,14 @@ function activateHaloMode() {
  * Collisions
  *********************************/
 function checkCollisions() {
-  // Crowns => +6.9 points
+  // Crowns => +6.9
   for (let i = 0; i < crowns.length; i++) {
     if (rectCollision(player, crowns[i])) {
       if (haloActive) {
         haloCrownBuffer += 6.9;
       } else {
         score += 6.9;
+        updatePeakScore();
       }
       crownsCollected++;
       crowns.splice(i, 1);
@@ -531,31 +539,21 @@ function checkCollisions() {
     }
   }
 
-  // Coins => if it's not lethal, score=0; 
-  // after 6 collisions => lose life
+  // Coins => score=0, after 6 => lose 1 life
   for (let i = 0; i < coins.length; i++) {
     if (rectCollision(player, coins[i])) {
-      // Check if collision is lethal or not
-      if (player.lives > 1) {
-        // Not lethal => reset score
-        score = 0;
-      }
+      score = 0; 
       coinHits++;
       coins.splice(i, 1);
       i--;
-
+      
       if (coinHits >= 6) {
         coinHits = 0;
-        // lose a life
-        if (player.lives > 1) {
-          player.lives--;
-        } else {
-          // lethal => skip resetting score
-          player.lives--;
-          if (player.lives <= 0) {
-            gameOverSequence();
-            return;
-          }
+        // lose life => game over if 0
+        player.lives--;
+        if (player.lives <= 0) {
+          endGame();
+          return;
         }
       }
     }
@@ -564,17 +562,16 @@ function checkCollisions() {
   // Rugs => lose 1 life, if not lethal => score=0
   for (let i = 0; i < rugs.length; i++) {
     if (rectCollision(player, rugs[i])) {
-      // lethal or not
       if (player.lives > 1) {
         score = 0;
         player.lives--;
       } else {
-        // lethal => skip resetting
+        // lethal => game over
         player.lives--;
         rugs.splice(i, 1);
         i--;
         if (player.lives <= 0) {
-          gameOverSequence();
+          endGame();
           return;
         }
       }
@@ -591,33 +588,35 @@ function checkCollisions() {
 }
 
 /*********************************
- * Extra Life at 420 points
+ * Utilities
  *********************************/
-function maybeAddLifeFromScore() {
-  while (score >= nextLifeThreshold) {
-    player.lives++;
-    nextLifeThreshold += 420;
+function updatePeakScore() {
+  if (score > peakScore) {
+    peakScore = score;
   }
 }
-
-/*********************************
- * Drawing
- *********************************/
+function drawEverything() {
+  drawPlayer();
+  drawCrowns();
+  drawCoins();
+  drawRugs();
+  drawRedHalo();
+}
 function drawPlayer() {
   drawEmoji(playerEmoji, player.x, player.y, player.width);
 }
 function drawCrowns() {
-  crowns.forEach(c => drawEmoji(EMOJI_CROWN, c.x, c.y, c.width));
+  crowns.forEach(c => drawEmoji("👑", c.x, c.y, c.width));
 }
 function drawCoins() {
   coins.forEach(coin => drawEmoji(coin.emoji, coin.x, coin.y, coin.width));
 }
 function drawRugs() {
-  rugs.forEach(rug => drawEmoji(EMOJI_RUG, rug.x, rug.y, rug.width));
+  rugs.forEach(rug => drawEmoji("🧻", rug.x, rug.y, rug.width));
 }
 function drawRedHalo() {
   if (redHalo) {
-    drawEmoji(EMOJI_RED_HALO, redHalo.x, redHalo.y, redHalo.width);
+    drawEmoji("⭕", redHalo.x, redHalo.y, redHalo.width);
   }
 }
 function drawEmoji(emoji, x, y, size) {
@@ -625,10 +624,6 @@ function drawEmoji(emoji, x, y, size) {
   ctx.textBaseline = "top";
   ctx.fillText(emoji, x, y);
 }
-
-/*********************************
- * Utility & UI
- *********************************/
 function rectCollision(a, b) {
   return (
     a.x < b.x + b.width &&
@@ -641,17 +636,18 @@ function updateUI() {
   document.getElementById('livesDisplay').textContent = 'Lives: ' + player.lives;
   document.getElementById('scoreDisplay').textContent = 'Score: ' + Math.floor(score);
 }
-function gameOverSequence() {
+function endGame() {
+  // final scoreboard => final score is "score" right now
+  // record peak if we have some leftover halo buffer?
+  // if we're in halo mode, we ended the game at that score
   gameOver = true;
-  if (score > highScore) {
-    highScore = score;
-    localStorage.setItem('emojiCollectorHighScore', highScore);
-  }
+  updatePeakScore(); 
   document.getElementById('finalScoreValue').textContent = Math.floor(score);
-  document.getElementById('highScoreValue').textContent = Math.floor(highScore);
+  document.getElementById('peakScoreValue').textContent = Math.floor(peakScore);
 
   const statsText = `
-    Rugs Avoided: ${rugsAvoidedCount} <br>
+    Crowns Collected: ${crownsCollected}<br>
+    Rugs Avoided: ${rugsAvoidedCount}<br>
     Red Halos Collected: ${redHaloCollected}
   `;
   document.getElementById('endStats').innerHTML = statsText;
