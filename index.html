@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Crown Collector (Single-run Peak + Final Score)</title>
+  <title>PumpKing (Single-run Peak + Final Score)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
   <style>
     /* Basic Reset & Layout */
@@ -469,7 +469,7 @@ function spawnAndUpdateRugs() {
       i--;
       rugsAvoidedCount++;
       // after 30 rugs => halo
-      if (rugsAvoidedCount >= 30) {
+      if (rugsAvoidedCount >= 6) {
         spawnRedHalo();
         rugsAvoidedCount = 0;
       }
