@@ -125,15 +125,14 @@
 
   <!-- Instruction Overlay -->
   <div id="instructionsOverlay" class="overlay">
-    <h1>Crown Collector</h1>
+    <h1>PumpKing Crown Collector</h1>
     <p style="max-width: 80%; margin: 0 auto;">
       - You start with <strong>1 life</strong>.<br>
-      - Crown (👑) => +6.9 points<br>
-      - Coin => score=0; after 6 hits => lose 1 life<br>
-      - Rug => lose 1 life, if not lethal => score=0<br>
-      - After <strong>420</strong> points => triple coins & rugs spawn; double crowns spawn & speed.<br>
-      - Avoid <strong>30</strong> rugs => Red Halo spawns<br>
-      - Final scoreboard shows your <strong>peak score</strong> & final score<br>
+      - Collect crowns 👑 <br>
+      - Avoid Libra ♎️, Melania 🇷🇺, and PF scammy money 💸 <br>
+      - Dodge rugs 🧻 <br>
+      - If something unexpected shows up, take your chances. <br>
+      - Final scoreboard shows your final score and your peak score<br>
     </p>
     <button id="startGameBtn">Start Game</button>
   </div>
@@ -196,6 +195,7 @@ let score = 0;
 let peakScore = 0;
 let crownsCollected = 0;
 let rugsAvoidedCount = 0;
+let totalRugsAvoided = 0; // New master count for all rugs avoided
 let coinHits = 0;
 let redHaloCollected = 0;
 let gameOver = false;
@@ -224,7 +224,7 @@ let haloCrownBuffer = 0;
  * Emojis
  *********************************/
 const EMOJI_PLAYER_NORMAL = "🎃";
-const EMOJI_PLAYER_HALO   = "💀⭕";
+const EMOJI_PLAYER_HALO   = "💀";
 const EMOJI_COIN_VARIANTS = ["♎","🇷🇺","💸"];
 const EMOJI_RUG           = "🧻";
 const EMOJI_RED_HALO      = "⭕";
@@ -289,6 +289,7 @@ function startGame() {
   peakScore = 0;
   crownsCollected = 0;
   rugsAvoidedCount = 0;
+  totalRugsAvoided = 0; 
   coinHits = 0;
   redHaloCollected = 0;
   difficultyUp = false;
@@ -461,23 +462,20 @@ function spawnCoin() {
  * Rug Logic
  *********************************/
 function spawnAndUpdateRugs() {
-  rugSpawnTimer++;
-  if (rugSpawnTimer >= rugSpawnInterval) {
-    spawnRug();
-    rugSpawnTimer = 0;
-  }
   for (let i = 0; i < rugs.length; i++) {
     let r = rugs[i];
     r.y += r.speed;
     if (r.y > HEIGHT + r.height) {
-      // avoided
+      // Rug avoided
       rugs.splice(i, 1);
       i--;
-      rugsAvoidedCount++;
-      // after 30 rugs => halo
+      rugsAvoidedCount++; // For red halo logic
+      totalRugsAvoided++; // Master count, not reset
+
+      // Existing red halo spawn logic
       if (rugsAvoidedCount >= 30) {
         spawnRedHalo();
-        rugsAvoidedCount = 0;
+        rugsAvoidedCount = 0; // Reset only this counter
       }
     }
   }
@@ -645,10 +643,11 @@ function endGame() {
 
   document.getElementById('finalScoreValue').textContent = Math.floor(score);
   document.getElementById('peakScoreValue').textContent = Math.floor(peakScore);
+  document.getElementById('totalRugsAvoidedValue').textContent = totalRugsAvoided;
 
   const statsText = `
     Crowns Collected: ${crownsCollected}<br>
-    Rugs Avoided: ${rugsAvoidedCount}<br>
+    Rugs Avoided: ${totalRugsAvoided}<br>
     Red Halos Collected: ${redHaloCollected}
   `;
   document.getElementById('endStats').innerHTML = statsText;
@@ -656,10 +655,10 @@ function endGame() {
   // Build "Share on X" link
   const finalScore = Math.floor(score);
   const peak = Math.floor(peakScore);
-  const tweetText = `I just played PumpKing!
+  const tweetText = `I just played @solofpumpking Crown Collector!
 Final: ${finalScore}, Peak: ${peak}
-Crowns: ${crownsCollected}, Avoided Rugs: ${rugsAvoidedCount}, Halos: ${redHaloCollected}.
-Try it out! #CrownCollectorGame`;
+Crowns: ${crownsCollected}, Avoided Rugs: ${totalRugsAvoided}, Red Halos: ${redHaloCollected}.
+Try it out! #PumpKingCrownCollector`;
   const shareUrl = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(tweetText);
   document.getElementById('shareXLink').href = shareUrl;
 
