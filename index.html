@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>PumpKing - Crown Collector</title>
+  <title>PumpKing</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
   <style>
+    /* Basic Reset & Layout */
     html, body {
       margin: 0;
       padding: 0;
@@ -17,6 +18,7 @@
       height: 100vh;
     }
 
+    /* 9:16 aspect ratio container, up to 666px wide */
     #gameContainer {
       position: relative;
       width: min(100vw, 666px);
@@ -27,12 +29,14 @@
       overflow: hidden;
     }
 
+    /* Canvas scaled to fill container, logic is 666x1184 */
     #gameCanvas {
       width: 100%;
       height: 100%;
       display: block;
     }
 
+    /* Overlays */
     .overlay {
       position: absolute;
       top: 0;
@@ -47,13 +51,13 @@
       pointer-events: none;
       z-index: 2;
     }
-
     #livesDisplay, #scoreDisplay {
       margin: 0.5em;
       font-size: 20px;
       text-shadow: 1px 1px 0 #000;
     }
 
+    /* Initial instructions */
     #instructionsOverlay {
       display: flex;
       flex-direction: column;
@@ -62,7 +66,6 @@
       background: rgba(0,0,0,0.8);
       z-index: 999;
     }
-
     #instructionsOverlay button {
       margin-top: 1em;
       padding: 0.5em 1em;
@@ -70,6 +73,7 @@
       cursor: pointer;
     }
 
+    /* Game Over Screen */
     #gameOverScreen {
       display: none;
       background: rgba(0, 0, 0, 0.8);
@@ -81,14 +85,13 @@
       padding: 1em;
       box-sizing: border-box;
     }
-
     #gameOverMessage {
       margin-bottom: 1em;
     }
-
+    /* "Share on X" link styling */
     #shareXLink {
       margin-top: 1em;
-      background: #1d9bf0;
+      background: #1d9bf0; /* Twitter Blue */
       color: #fff;
       text-decoration: none;
       font-size: 18px;
@@ -96,6 +99,7 @@
       border-radius: 6px;
     }
 
+    /* Mobile Controls: two clickable halves at bottom */
     #mobileControls {
       position: absolute;
       bottom: 0;
@@ -105,185 +109,568 @@
       z-index: 5;
       display: flex;
     }
-
     .control-half {
       width: 50%;
       height: 100%;
       background: rgba(0,0,0,0.1);
     }
-
     .control-half:active {
       background: rgba(0,0,0,0.2);
     }
   </style>
 </head>
 <body>
-  <div id="gameContainer">
-    <div id="instructionsOverlay" class="overlay">
-      <h1>Crown Collector</h1>
-      <p style="max-width: 80%; margin: 0 auto;">
-        - You start with <strong>1 life</strong>.<br>
-        - Crown (👑) => +6.9 points<br>
-        - Coin => score=0; after 6 hits => lose 1 life<br>
-        - Rug => lose 1 life, if not lethal => score=0<br>
-        - After <strong>420</strong> points => triple coins & rugs spawn; 
-        double crowns spawn & speed.<br>
-        - Avoid <strong>30</strong> rugs => Red Halo spawns<br>
-        - Final scoreboard shows your <strong>peak score</strong> & final score<br>
-      </p>
-      <button id="startGameBtn">Start Game</button>
-    </div>
 
-    <canvas id="gameCanvas" width="666" height="1184"></canvas>
+<div id="gameContainer">
 
-    <div id="overlay" class="overlay" style="z-index:3;">
-      <div id="livesDisplay">Lives: 1</div>
-      <div id="scoreDisplay">Score: 0</div>
-    </div>
-
-    <div id="gameOverScreen" class="overlay" style="display:flex;">
-      <div id="gameOverMessage">RUGGED AGAIN</div>
-      <div>
-        Final Score: <span id="finalScoreValue">0</span><br>
-        Peak Score: <span id="peakScoreValue">0</span>
-      </div>
-      <div id="endStats" style="margin-top:1em; font-size:16px;"></div>
-      <a id="shareXLink" href="#" target="_blank">Share on X</a>
-      <div style="margin-top:1em;">Press SPACE or tap to play again</div>
-    </div>
-
-    <div id="mobileControls">
-      <div id="leftHalf" class="control-half"></div>
-      <div id="rightHalf" class="control-half"></div>
-    </div>
+  <!-- Instruction Overlay -->
+  <div id="instructionsOverlay" class="overlay">
+    <h1>Crown Collector</h1>
+    <p style="max-width: 80%; margin: 0 auto;">
+      - You start with <strong>1 life</strong>.<br>
+      - Crown (👑) => +6.9 points<br>
+      - Coin => score=0; after 6 hits => lose 1 life<br>
+      - Rug => lose 1 life, if not lethal => score=0<br>
+      - After <strong>420</strong> points => triple coins & rugs spawn; double crowns spawn & speed.<br>
+      - Avoid <strong>30</strong> rugs => Red Halo spawns<br>
+      - Final scoreboard shows your <strong>peak score</strong> & final score<br>
+    </p>
+    <button id="startGameBtn">Start Game</button>
   </div>
 
+  <!-- The game canvas (666×1184) -->
+  <canvas id="gameCanvas" width="666" height="1184"></canvas>
+
+  <!-- Score overlay at top -->
+  <div id="overlay" class="overlay" style="z-index:3;">
+    <div id="livesDisplay">Lives: 1</div>
+    <div id="scoreDisplay">Score: 0</div>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div id="gameOverScreen" class="overlay">
+    <div id="gameOverMessage">RUGGED AGAIN</div>
+    <div>
+      Final Score: <span id="finalScoreValue">0</span><br>
+      Peak Score: <span id="peakScoreValue">0</span>
+    </div>
+    <div id="endStats" style="margin-top:1em; font-size:16px;"></div>
+    <a id="shareXLink" href="#" target="_blank">Share on X</a>
+    <div style="margin-top:1em;">Press SPACE or tap to play again</div>
+  </div>
+
+  <!-- Mobile Controls -->
+  <div id="mobileControls">
+    <div id="leftHalf" class="control-half"></div>
+    <div id="rightHalf" class="control-half"></div>
+  </div>
+
+</div>
+
 <script>
-// Security Configuration
-const SECURITY = {
-  salt: 'pumpk1ng_s3cr3t_' + Math.random().toString(36).slice(2),
-  encode: (val) => btoa(SECURITY.salt + val.toString().split('').reverse().join('')),
-  decode: (encoded) => {
-    try {
-      const raw = atob(encoded);
-      return raw.startsWith(SECURITY.salt) ? 
-        parseFloat(raw.slice(SECURITY.salt.length).split('').reverse().join('')) : 0;
-    } catch(e) { return 0; }
-  }
+/*
+  Crown Collector – Single-run Peak vs Final Score + X Sharing
+*/
+
+/*********************************
+ * Canvas & Context
+ *********************************/
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const WIDTH = canvas.width;
+const HEIGHT = canvas.height;
+
+/*********************************
+ * Game Variables
+ *********************************/
+let player = {
+  x: WIDTH / 2 - 24,
+  y: HEIGHT - 70,
+  width: 48,
+  height: 48,
+  speed: 6,
+  lives: 1
 };
 
-// Game State
-let game = {
-  canvas: document.getElementById('gameCanvas'),
-  ctx: document.getElementById('gameCanvas').getContext('2d'),
-  player: {
-    x: 666/2 - 24,
-    y: 1184 - 70,
-    width: 48,
-    height: 48,
-    speed: 6,
-    lives: 1,
-    emoji: "🎃"
-  },
-  score: 0,
-  peakScore: 0,
-  active: false,
-  over: false,
-  entities: {
-    crowns: [],
-    coins: [],
-    rugs: [],
-    halo: null
-  },
-  timers: {
-    crown: 0,
-    coin: 0,
-    rug: 0,
-    halo: 0
-  },
-  stats: {
-    crowns: 0,
-    rugsAvoided: 0,
-    coinsHit: 0,
-    halos: 0
+let score = 0;
+let peakScore = 0;
+let crownsCollected = 0;
+let rugsAvoidedCount = 0;
+let coinHits = 0;
+let redHaloCollected = 0;
+let gameOver = false;
+
+// Base intervals
+let baseCrownSpawnInterval = 30;
+let baseCoinSpawnInterval  = 42;
+let baseRugSpawnInterval   = 69;
+
+// Current intervals
+let crownSpawnInterval = baseCrownSpawnInterval;
+let coinSpawnInterval  = baseCoinSpawnInterval;
+let rugSpawnInterval   = baseRugSpawnInterval;
+
+// Timers
+let crownSpawnTimer = 0;
+let coinSpawnTimer = 0;
+let rugSpawnTimer = 0;
+
+let difficultyUp = false;
+let haloActive = false;
+let haloTimer = 0;
+let haloCrownBuffer = 0;
+
+/*********************************
+ * Emojis
+ *********************************/
+const EMOJI_PLAYER_NORMAL = "🎃";
+const EMOJI_PLAYER_HALO   = "💀⭕";
+const EMOJI_COIN_VARIANTS = ["♎","🇷🇺","💸"];
+const EMOJI_RUG           = "🧻";
+const EMOJI_RED_HALO      = "⭕";
+
+let playerEmoji = EMOJI_PLAYER_NORMAL;
+
+/*********************************
+ * Input
+ *********************************/
+let keys = {};
+let movingLeft = false;
+let movingRight = false;
+
+// Desktop
+window.addEventListener('keydown', (e) => {
+  if (gameOver && e.code === 'Space') {
+    restartGame();
   }
-};
+  keys[e.code] = true;
+});
+window.addEventListener('keyup', (e) => {
+  keys[e.code] = false;
+});
 
-// Initialize Game
-function init() {
-  // Event Listeners
-  window.addEventListener('keydown', handleKey);
-  window.addEventListener('keyup', handleKey);
-  document.getElementById('startGameBtn').addEventListener('click', start);
-  setupTouch();
+// Mobile
+const leftHalf = document.getElementById('leftHalf');
+leftHalf.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  movingLeft = true;
+});
+leftHalf.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  movingLeft = false;
+});
 
-  // Initial Render
-  requestAnimationFrame(update);
+const rightHalf = document.getElementById('rightHalf');
+rightHalf.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  movingRight = true;
+});
+rightHalf.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  movingRight = false;
+});
+
+/*********************************
+ * Initialization
+ *********************************/
+const instructionsOverlay = document.getElementById('instructionsOverlay');
+const startGameBtn = document.getElementById('startGameBtn');
+startGameBtn.addEventListener('click', () => {
+  instructionsOverlay.style.display = 'none';
+  startGame();
+});
+
+function startGame() {
+  gameOver = false;
+  player.lives = 1;
+  player.x = WIDTH / 2 - 24;
+
+  score = 0;
+  peakScore = 0;
+  crownsCollected = 0;
+  rugsAvoidedCount = 0;
+  coinHits = 0;
+  redHaloCollected = 0;
+  difficultyUp = false;
+
+  crowns = [];
+  coins = [];
+  rugs = [];
+  redHalo = null;
+
+  haloActive = false;
+  haloTimer = 0;
+  haloCrownBuffer = 0;
+  playerEmoji = EMOJI_PLAYER_NORMAL;
+
+  // Reset intervals
+  crownSpawnInterval = baseCrownSpawnInterval;
+  coinSpawnInterval  = baseCoinSpawnInterval;
+  rugSpawnInterval   = baseRugSpawnInterval;
+
+  document.getElementById('gameOverScreen').style.display = 'none';
+  requestAnimationFrame(updateGame);
 }
 
-// Game Loop
-let lastFrame = 0;
-function update(timestamp) {
-  const delta = timestamp - lastFrame;
-  lastFrame = timestamp;
+/*********************************
+ * Main Loop
+ *********************************/
+function updateGame() {
+  if (gameOver) return;
 
-  if (!game.over) {
-    processInput();
-    updateEntities(delta);
-    checkCollisions();
-    render();
-  }
-  requestAnimationFrame(update);
-}
+  ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-// Core Game Functions
-function start() {
-  document.getElementById('instructionsOverlay').style.display = 'none';
-  resetGame();
-  game.active = true;
-}
+  handleInput();
+  checkDifficulty();
 
-function resetGame() {
-  game = {
-    ...game,
-    player: { ...game.player, lives: 1, x: 666/2 - 24 },
-    score: 0,
-    peakScore: 0,
-    active: true,
-    over: false,
-    entities: { crowns: [], coins: [], rugs: [], halo: null },
-    timers: { crown: 0, coin: 0, rug: 0, halo: 0 },
-    stats: { crowns: 0, rugsAvoided: 0, coinsHit: 0, halos: 0 }
-  };
-}
+  spawnAndUpdateCrowns();
+  spawnAndUpdateCoins();
+  spawnAndUpdateRugs();
+  spawnAndUpdateRedHalo();
 
-// ... (remaining game logic - kept similar to original but optimized) ...
-
-// Mobile Controls
-let touchId = null;
-function setupTouch() {
-  const controls = document.getElementById('mobileControls');
-  controls.addEventListener('touchstart', e => {
-    e.preventDefault();
-    if (!touchId) {
-      touchId = e.changedTouches[0].identifier;
-      game.player.moving = e.changedTouches[0].clientX < window.innerWidth/2 ? 'left' : 'right';
+  if (haloActive) {
+    haloTimer--;
+    if (haloTimer <= 0) {
+      // End halo
+      score += haloCrownBuffer;
+      haloCrownBuffer = 0;
+      haloActive = false;
+      playerEmoji = EMOJI_PLAYER_NORMAL;
+      updatePeakScore();
     }
+  }
+
+  checkCollisions();
+  drawEverything();
+  updateUI();
+
+  requestAnimationFrame(updateGame);
+}
+
+/*********************************
+ * Difficulty after 420
+ *********************************/
+function checkDifficulty() {
+  if (!difficultyUp && score >= 420) {
+    difficultyUp = true;
+    // triple coin & rug frequency
+    coinSpawnInterval = baseCoinSpawnInterval / 3;
+    rugSpawnInterval  = baseRugSpawnInterval  / 3;
+    // double crown spawn frequency
+    crownSpawnInterval = baseCrownSpawnInterval / 2;
+  }
+}
+
+/*********************************
+ * Movement
+ *********************************/
+function handleInput() {
+  // Keyboard
+  if (keys['ArrowLeft']) {
+    player.x -= player.speed;
+  }
+  if (keys['ArrowRight']) {
+    player.x += player.speed;
+  }
+  // Mobile
+  if (movingLeft) {
+    player.x -= player.speed;
+  }
+  if (movingRight) {
+    player.x += player.speed;
+  }
+  // Boundaries
+  if (player.x < 0) player.x = 0;
+  if (player.x + player.width > WIDTH) {
+    player.x = WIDTH - player.width;
+  }
+}
+
+/*********************************
+ * Crown Logic
+ *********************************/
+function spawnAndUpdateCrowns() {
+  crownSpawnTimer++;
+  if (crownSpawnTimer >= crownSpawnInterval) {
+    spawnCrown();
+    crownSpawnTimer = 0;
+  }
+  for (let i = 0; i < crowns.length; i++) {
+    let c = crowns[i];
+    if (haloActive) {
+      pullCrownToPlayer(c);
+    } else {
+      c.y += c.speed;
+    }
+    if (c.y > HEIGHT + c.height) {
+      crowns.splice(i, 1);
+      i--;
+    }
+  }
+}
+function spawnCrown() {
+  // base speed=4, if difficultyUp => 8
+  let baseSpeed = difficultyUp ? 8 : 4;
+  crowns.push({
+    x: Math.random() * (WIDTH - 28),
+    y: -40,
+    width: 28,
+    height: 28,
+    speed: baseSpeed
   });
-  
-  controls.addEventListener('touchend', e => {
-    e.preventDefault();
-    for (let touch of e.changedTouches) {
-      if (touch.identifier === touchId) {
-        touchId = null;
-        game.player.moving = null;
+}
+function pullCrownToPlayer(c) {
+  let px = player.x + player.width / 2;
+  let py = player.y + player.height / 2;
+  let dx = px - c.x;
+  let dy = py - c.y;
+  c.x += dx * 0.1;
+  c.y += dy * 0.1;
+}
+
+/*********************************
+ * Coin Logic
+ *********************************/
+function spawnAndUpdateCoins() {
+  coinSpawnTimer++;
+  if (coinSpawnTimer >= coinSpawnInterval) {
+    spawnCoin();
+    coinSpawnTimer = 0;
+  }
+  for (let i = 0; i < coins.length; i++) {
+    coins[i].y += coins[i].speed;
+    if (coins[i].y > HEIGHT + coins[i].height) {
+      coins.splice(i, 1);
+      i--;
+    }
+  }
+}
+function spawnCoin() {
+  let rnd = Math.floor(Math.random() * EMOJI_COIN_VARIANTS.length);
+  coins.push({
+    x: Math.random() * (WIDTH - 28),
+    y: -32,
+    width: 28,
+    height: 28,
+    speed: 6 + Math.random(),
+    emoji: EMOJI_COIN_VARIANTS[rnd]
+  });
+}
+
+/*********************************
+ * Rug Logic
+ *********************************/
+function spawnAndUpdateRugs() {
+  rugSpawnTimer++;
+  if (rugSpawnTimer >= rugSpawnInterval) {
+    spawnRug();
+    rugSpawnTimer = 0;
+  }
+  for (let i = 0; i < rugs.length; i++) {
+    let r = rugs[i];
+    r.y += r.speed;
+    if (r.y > HEIGHT + r.height) {
+      // avoided
+      rugs.splice(i, 1);
+      i--;
+      rugsAvoidedCount++;
+      // after 30 rugs => halo
+      if (rugsAvoidedCount >= 30) {
+        spawnRedHalo();
+        rugsAvoidedCount = 0;
       }
     }
+  }
+}
+function spawnRug() {
+  rugs.push({
+    x: Math.random() * (WIDTH - 44),
+    y: -44,
+    width: 44,
+    height: 44,
+    speed: 6
   });
 }
 
-// Start the Game
-document.addEventListener('DOMContentLoaded', init);
+/*********************************
+ * Red Halo
+ *********************************/
+function spawnAndUpdateRedHalo() {
+  if (redHalo) {
+    redHalo.y += redHalo.speed;
+    redHalo.angle += 0.1;
+    redHalo.x += Math.sin(redHalo.angle) * redHalo.amplitude;
+    if (redHalo.y > HEIGHT + redHalo.height) {
+      redHalo = null;
+    }
+  }
+}
+function spawnRedHalo() {
+  if (!redHalo) {
+    redHalo = {
+      x: Math.random() * (WIDTH - 33),
+      y: -32,
+      width: 28,
+      height: 28,
+      speed: 4,
+      angle: 0,
+      amplitude: 2.5
+    };
+  }
+}
+function activateHaloMode() {
+  haloActive = true;
+  haloTimer = 120; // 2s
+  haloCrownBuffer = 0;
+  playerEmoji = EMOJI_PLAYER_HALO;
+  redHaloCollected++;
+}
+
+/*********************************
+ * Collisions
+ *********************************/
+function checkCollisions() {
+  // Crowns => +6.9
+  for (let i = 0; i < crowns.length; i++) {
+    if (rectCollision(player, crowns[i])) {
+      if (haloActive) {
+        haloCrownBuffer += 6.9;
+      } else {
+        score += 6.9;
+        updatePeakScore();
+      }
+      crownsCollected++;
+      crowns.splice(i, 1);
+      i--;
+    }
+  }
+
+  // Coins => score=0, after 6 => lose 1 life
+  for (let i = 0; i < coins.length; i++) {
+    if (rectCollision(player, coins[i])) {
+      score = 0;
+      coinHits++;
+      coins.splice(i, 1);
+      i--;
+      if (coinHits >= 6) {
+        coinHits = 0;
+        player.lives--;
+        if (player.lives <= 0) {
+          endGame();
+          return;
+        }
+      }
+    }
+  }
+
+  // Rugs => lose 1 life, if not lethal => score=0
+  for (let i = 0; i < rugs.length; i++) {
+    if (rectCollision(player, rugs[i])) {
+      if (player.lives > 1) {
+        score = 0;
+      }
+      player.lives--;
+      rugs.splice(i, 1);
+      i--;
+      if (player.lives <= 0) {
+        endGame();
+        return;
+      }
+    }
+  }
+
+  // Red Halo => halo mode
+  if (redHalo && rectCollision(player, redHalo)) {
+    redHalo = null;
+    activateHaloMode();
+  }
+}
+
+/*********************************
+ * Draw & Update
+ *********************************/
+function updatePeakScore() {
+  if (score > peakScore) {
+    peakScore = score;
+  }
+}
+function drawEverything() {
+  drawPlayer();
+  drawCrowns();
+  drawCoins();
+  drawRugs();
+  drawRedHalo();
+}
+function drawPlayer() {
+  drawEmoji(playerEmoji, player.x, player.y, player.width);
+}
+function drawCrowns() {
+  crowns.forEach(c => drawEmoji("👑", c.x, c.y, c.width));
+}
+function drawCoins() {
+  coins.forEach(coin => drawEmoji(coin.emoji, coin.x, coin.y, coin.width));
+}
+function drawRugs() {
+  rugs.forEach(rug => drawEmoji("🧻", rug.x, rug.y, rug.width));
+}
+function drawRedHalo() {
+  if (redHalo) {
+    drawEmoji("⭕", redHalo.x, redHalo.y, redHalo.width);
+  }
+}
+function drawEmoji(emoji, x, y, size) {
+  ctx.font = `${size}px sans-serif`;
+  ctx.textBaseline = "top";
+  ctx.fillText(emoji, x, y);
+}
+function rectCollision(a, b) {
+  return (
+    a.x < b.x + b.width &&
+    a.x + a.width > b.x &&
+    a.y < b.y + b.height &&
+    a.y + a.height > b.y
+  );
+}
+function updateUI() {
+  document.getElementById('livesDisplay').textContent = 'Lives: ' + player.lives;
+  document.getElementById('scoreDisplay').textContent = 'Score: ' + Math.floor(score);
+}
+
+/*********************************
+ * End Game
+ *********************************/
+function endGame() {
+  gameOver = true;
+  updatePeakScore();
+
+  document.getElementById('finalScoreValue').textContent = Math.floor(score);
+  document.getElementById('peakScoreValue').textContent = Math.floor(peakScore);
+
+  const statsText = `
+    Crowns Collected: ${crownsCollected}<br>
+    Rugs Avoided: ${rugsAvoidedCount}<br>
+    Red Halos Collected: ${redHaloCollected}
+  `;
+  document.getElementById('endStats').innerHTML = statsText;
+
+  // Build "Share on X" link
+  const finalScore = Math.floor(score);
+  const peak = Math.floor(peakScore);
+  const tweetText = `I just played PumpKing!
+Final: ${finalScore}, Peak: ${peak}
+Crowns: ${crownsCollected}, Avoided Rugs: ${rugsAvoidedCount}, Halos: ${redHaloCollected}.
+Try it out! #CrownCollectorGame`;
+  const shareUrl = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(tweetText);
+  document.getElementById('shareXLink').href = shareUrl;
+
+  document.getElementById('gameOverScreen').style.display = 'flex';
+  document.getElementById('gameOverScreen').addEventListener('touchstart', restartGame, {once: true});
+}
+
+function restartGame() {
+  document.getElementById('gameOverScreen').style.display = 'none';
+  startGame();
+}
 </script>
 </body>
 </html>
