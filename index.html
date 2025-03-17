@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>PumpKing </title>
+  <title>PumpKing</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
   <style>
     /* Basic Reset & Layout */
@@ -131,7 +131,8 @@
       - Crown (👑) => +6.9 points<br>
       - Coin => score=0; after 6 hits => lose 1 life<br>
       - Rug => lose 1 life, if not lethal => score=0<br>
-      - After <strong>420</strong> points => triple coins & rugs spawn; double crowns spawn & speed.<br>
+      - After <strong>420</strong> points => triple coins & rugs spawn; 
+        double crowns spawn & speed.<br>
       - Avoid <strong>30</strong> rugs => Red Halo spawns<br>
       - Final scoreboard shows your <strong>peak score</strong> & final score<br>
     </p>
@@ -171,21 +172,80 @@
 </div>
 
 <script>
-/*
-  Crown Collector – Single-run Peak vs Final Score + X Sharing
-*/
 
-/*********************************
- * Canvas & Context
- *********************************/
+/*******************************************************
+ * 1) Attempt to Disable Dev Tools (easily bypassable)
+ *******************************************************/
+document.addEventListener('contextmenu',(e)=>e.preventDefault());
+document.onkeydown = function(e) {
+  if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I')) {
+    e.preventDefault();
+    alert("DevTools disabled!");
+  }
+};
+
+/*******************************************************
+ * 2) Obfuscation & Checking Self-Integrity
+ *    (Trivial example only – in production,
+ *     you'd do minification/obfuscation.)
+ *******************************************************/
+function selfIntegrityCheck() {
+  if (selfIntegrityCheck.toString().length < 100) {
+    alert("Code tampering detected!");
+    setScore(0); // or end the game, etc.
+  }
+}
+// Call this periodically
+setInterval(selfIntegrityCheck, 10000);
+
+/*******************************************************
+ * 3) Encoded Score Storage
+ *******************************************************/
+function encodeVal(val, secret="SALT123") {
+  const combined = secret + val.toString().split('').reverse().join('');
+  return btoa(combined);
+}
+function decodeVal(encoded, secret="SALT123") {
+  try {
+    const raw = atob(encoded);
+    if (!raw.startsWith(secret)) return 0; 
+    const rev = raw.slice(secret.length).split('').reverse().join('');
+    return parseFloat(rev);
+  } catch(e) {
+    return 0;
+  }
+}
+let _encScore = encodeVal(0);
+function getScore(){
+  return decodeVal(_encScore);
+}
+function setScore(newVal){
+  _encScore = encodeVal(newVal);
+}
+
+/*******************************************************
+ * 4) Rate/Time Checks
+ *******************************************************/
+let startTime = Date.now();
+let eventCount = 0;
+function trackEvent() {
+  eventCount++;
+  const elapsed = (Date.now() - startTime)/1000;
+  // If we exceed some threshold => suspicious
+  if (eventCount / elapsed > 50) {
+    alert("Suspicious activity rate!");
+    setScore(0);
+  }
+}
+
+/*******************************************************
+ * 5) Crown Collector Mechanics
+ *******************************************************/
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const WIDTH = canvas.width;  
 const HEIGHT = canvas.height;
 
-/*********************************
- * Game Variables
- *********************************/
 let player = {
   x: WIDTH / 2 - 24,
   y: HEIGHT - 70,
@@ -195,37 +255,25 @@ let player = {
   lives: 1
 };
 
-let score = 0;
-let peakScore = 0;  
-let crownsCollected = 0;
-let rugsAvoidedCount = 0;
-let coinHits = 0;
-let redHaloCollected = 0;
-let gameOver = false;
+let score = 0, peakScore = 0;
+let crownsCollected = 0, rugsAvoidedCount = 0;
+let coinHits = 0, redHaloCollected = 0, gameOver = false;
 
-// Base intervals
 let baseCrownSpawnInterval = 30;
 let baseCoinSpawnInterval  = 42;
 let baseRugSpawnInterval   = 69;
 
-// Current intervals
 let crownSpawnInterval = baseCrownSpawnInterval;
 let coinSpawnInterval  = baseCoinSpawnInterval;
 let rugSpawnInterval   = baseRugSpawnInterval;
 
-// Timers
-let crownSpawnTimer = 0;
-let coinSpawnTimer = 0;
-let rugSpawnTimer = 0;
+let crownSpawnTimer=0, coinSpawnTimer=0, rugSpawnTimer=0;
 
-let difficultyUp = false; 
+let difficultyUp = false;
 let haloActive = false;
 let haloTimer = 0;
 let haloCrownBuffer = 0;
 
-/*********************************
- * Emojis
- *********************************/
 const EMOJI_PLAYER_NORMAL = "🎃";
 const EMOJI_PLAYER_HALO   = "💀⭕";
 const EMOJI_COIN_VARIANTS = ["♎","🇷🇺","💸"];
@@ -234,94 +282,61 @@ const EMOJI_RED_HALO      = "⭕";
 
 let playerEmoji = EMOJI_PLAYER_NORMAL;
 
-/*********************************
- * Input
- *********************************/
+// Controls
 let keys = {};
-let movingLeft = false;
-let movingRight = false;
+let movingLeft = false, movingRight = false;
 
-// Desktop
-window.addEventListener('keydown', (e) => {
-  if (gameOver && e.code === 'Space') {
-    restartGame();
-  }
-  keys[e.code] = true;
+window.addEventListener('keydown',(e)=>{
+  if(gameOver && e.code==='Space'){ restartGame(); }
+  keys[e.code]=true;
 });
-window.addEventListener('keyup', (e) => {
-  keys[e.code] = false;
+window.addEventListener('keyup',(e)=>{
+  keys[e.code]=false;
 });
 
-// Mobile
-const leftHalf = document.getElementById('leftHalf');
-leftHalf.addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  movingLeft = true;
-});
-leftHalf.addEventListener('touchend', (e) => {
-  e.preventDefault();
-  movingLeft = false;
-});
+const leftHalf=document.getElementById('leftHalf');
+leftHalf.addEventListener('touchstart',(e)=>{ e.preventDefault(); movingLeft=true; });
+leftHalf.addEventListener('touchend',(e)=>{ e.preventDefault(); movingLeft=false; });
 
-const rightHalf = document.getElementById('rightHalf');
-rightHalf.addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  movingRight = true;
-});
-rightHalf.addEventListener('touchend', (e) => {
-  e.preventDefault();
-  movingRight = false;
-});
+const rightHalf=document.getElementById('rightHalf');
+rightHalf.addEventListener('touchstart',(e)=>{ e.preventDefault(); movingRight=true; });
+rightHalf.addEventListener('touchend',(e)=>{ e.preventDefault(); movingRight=false; });
 
-/*********************************
- * Initialization
- *********************************/
-const instructionsOverlay = document.getElementById('instructionsOverlay');
-const startGameBtn = document.getElementById('startGameBtn');
-startGameBtn.addEventListener('click', () => {
-  instructionsOverlay.style.display = 'none';
+const instructionsOverlay=document.getElementById('instructionsOverlay');
+const startGameBtn=document.getElementById('startGameBtn');
+startGameBtn.addEventListener('click',()=>{
+  instructionsOverlay.style.display='none';
   startGame();
 });
 
-function startGame() {
-  gameOver = false;
-  player.lives = 1;
-  player.x = WIDTH / 2 - 24;
+function startGame(){
+  gameOver=false;
+  player.lives=1;
+  player.x=WIDTH/2-24;
+  setScore(0); // Using encoded
+  peakScore=0;
+  crownsCollected=0;
+  rugsAvoidedCount=0;
+  coinHits=0;
+  redHaloCollected=0;
+  difficultyUp=false;
 
-  score = 0;
-  peakScore = 0;
-  crownsCollected = 0;
-  rugsAvoidedCount = 0;
-  coinHits = 0;
-  redHaloCollected = 0;
-  difficultyUp = false;
+  crownSpawnInterval=baseCrownSpawnInterval;
+  coinSpawnInterval=baseCoinSpawnInterval;
+  rugSpawnInterval=baseRugSpawnInterval;
 
-  crowns = [];
-  coins = [];
-  rugs = [];
-  redHalo = null;
+  crowns=[]; coins=[]; rugs=[]; redHalo=null;
+  haloActive=false; haloTimer=0; haloCrownBuffer=0;
+  playerEmoji=EMOJI_PLAYER_NORMAL;
 
-  haloActive = false;
-  haloTimer = 0;
-  haloCrownBuffer = 0;
-  playerEmoji = EMOJI_PLAYER_NORMAL;
-
-  // Reset intervals
-  crownSpawnInterval = baseCrownSpawnInterval;
-  coinSpawnInterval  = baseCoinSpawnInterval;
-  rugSpawnInterval   = baseRugSpawnInterval;
-
-  document.getElementById('gameOverScreen').style.display = 'none';
+  document.getElementById('gameOverScreen').style.display='none';
   requestAnimationFrame(updateGame);
 }
 
-/*********************************
- * Main Loop
- *********************************/
-function updateGame() {
-  if (gameOver) return;
+function updateGame(){
+  if(gameOver)return;
 
-  ctx.clearRect(0, 0, WIDTH, HEIGHT);
+  ctx.clearRect(0,0,WIDTH,HEIGHT);
 
   handleInput();
   checkDifficulty();
@@ -331,14 +346,15 @@ function updateGame() {
   spawnAndUpdateRugs();
   spawnAndUpdateRedHalo();
 
-  if (haloActive) {
+  if(haloActive){
     haloTimer--;
-    if (haloTimer <= 0) {
-      // End halo
-      score += haloCrownBuffer;
-      haloCrownBuffer = 0;
-      haloActive = false;
-      playerEmoji = EMOJI_PLAYER_NORMAL;
+    if(haloTimer<=0){
+      let sc=getScore();
+      sc+=haloCrownBuffer;
+      setScore(sc);
+      haloCrownBuffer=0;
+      haloActive=false;
+      playerEmoji=EMOJI_PLAYER_NORMAL;
       updatePeakScore();
     }
   }
@@ -350,334 +366,311 @@ function updateGame() {
   requestAnimationFrame(updateGame);
 }
 
-/*********************************
- * Difficulty after 420
- *********************************/
-function checkDifficulty() {
-  if (!difficultyUp && score >= 420) {
-    difficultyUp = true;
-    // triple coin & rug frequency
-    coinSpawnInterval = coinSpawnInterval / 3;
-    rugSpawnInterval  = rugSpawnInterval  / 3;
-    // double crown spawn frequency
-    crownSpawnInterval = crownSpawnInterval / 2;
+// Difficulty after 420
+function checkDifficulty(){
+  let sc=getScore();
+  if(!difficultyUp && sc>=420){
+    difficultyUp=true;
+    coinSpawnInterval/=3;
+    rugSpawnInterval/=3;
+    crownSpawnInterval/=2;
   }
 }
 
-/*********************************
- * Movement
- *********************************/
-function handleInput() {
-  // Keyboard
-  if (keys['ArrowLeft']) {
-    player.x -= player.speed;
-  }
-  if (keys['ArrowRight']) {
-    player.x += player.speed;
-  }
-  // Mobile
-  if (movingLeft) {
-    player.x -= player.speed;
-  }
-  if (movingRight) {
-    player.x += player.speed;
-  }
-  // Boundaries
-  if (player.x < 0) player.x = 0;
-  if (player.x + player.width > WIDTH) {
-    player.x = WIDTH - player.width;
-  }
+function handleInput(){
+  if(keys['ArrowLeft']) player.x-=player.speed;
+  if(keys['ArrowRight'])player.x+=player.speed;
+  if(movingLeft) player.x-=player.speed;
+  if(movingRight)player.x+=player.speed;
+
+  if(player.x<0)player.x=0;
+  if(player.x+player.width>WIDTH)player.x=WIDTH-player.width;
 }
 
-/*********************************
- * Crown Logic
- *********************************/
-function spawnAndUpdateCrowns() {
+/****** Crowns ******/
+let crowns=[];
+function spawnAndUpdateCrowns(){
   crownSpawnTimer++;
-  if (crownSpawnTimer >= crownSpawnInterval) {
-    spawnCrown();
-    crownSpawnTimer = 0;
+  if(crownSpawnTimer>=crownSpawnInterval){
+    spawnCrown(); 
+    crownSpawnTimer=0;
   }
-  for (let i = 0; i < crowns.length; i++) {
-    let c = crowns[i];
-    if (haloActive) {
+  for(let i=0;i<crowns.length;i++){
+    let c=crowns[i];
+    if(haloActive){
       pullCrownToPlayer(c);
     } else {
-      // double speed if difficultyUp
-      let speedFactor = difficultyUp ? c.speed * 2 : c.speed;
-      c.y += speedFactor;
+      let speedFactor=(difficultyUp)? c.speed*2 : c.speed;
+      c.y+=speedFactor;
     }
-    if (c.y > HEIGHT + c.height) {
-      crowns.splice(i, 1);
+    if(c.y>HEIGHT+c.height){
+      crowns.splice(i,1);
       i--;
     }
   }
 }
-function spawnCrown() {
-  // base speed=4, if difficultyUp => 8
-  let baseSpeed = difficultyUp ? 8 : 4; 
-  crowns.push({
-    x: Math.random() * (WIDTH - 28),
-    y: -40,
-    width: 28,
-    height: 28,
-    speed: baseSpeed
-  });
+function spawnCrown(){
+  let baseSpeed=(difficultyUp?8:4);
+  crowns.push({ x:Math.random()*(WIDTH-28), y:-40, width:28, height:28, speed:baseSpeed });
 }
-function pullCrownToPlayer(c) {
-  let px = player.x + player.width / 2;
-  let py = player.y + player.height / 2;
-  let dx = px - c.x;
-  let dy = py - c.y;
-  c.x += dx * 0.1;
-  c.y += dy * 0.1;
+function pullCrownToPlayer(c){
+  let px=player.x+player.width/2;
+  let py=player.y+player.height/2;
+  let dx=px-c.x; 
+  let dy=py-c.y;
+  c.x+=dx*0.1; 
+  c.y+=dy*0.1;
 }
 
-/*********************************
- * Coin Logic
- *********************************/
-function spawnAndUpdateCoins() {
+/****** Coins ******/
+let coins=[];
+function spawnAndUpdateCoins(){
   coinSpawnTimer++;
-  if (coinSpawnTimer >= coinSpawnInterval) {
+  if(coinSpawnTimer>=coinSpawnInterval){
     spawnCoin();
-    coinSpawnTimer = 0;
+    coinSpawnTimer=0;
   }
-  for (let i = 0; i < coins.length; i++) {
-    coins[i].y += coins[i].speed;
-    if (coins[i].y > HEIGHT + coins[i].height) {
-      coins.splice(i, 1);
+  for(let i=0;i<coins.length;i++){
+    coins[i].y+=coins[i].speed;
+    if(coins[i].y>HEIGHT+coins[i].height){
+      coins.splice(i,1);
       i--;
     }
   }
 }
-function spawnCoin() {
-  let rnd = Math.floor(Math.random() * EMOJI_COIN_VARIANTS.length);
+function spawnCoin(){
+  let rnd=Math.floor(Math.random()*EMOJI_COIN_VARIANTS.length);
   coins.push({
-    x: Math.random() * (WIDTH - 28),
-    y: -32,
-    width: 28,
-    height: 28,
-    speed: 6 + Math.random(),
-    emoji: EMOJI_COIN_VARIANTS[rnd]
+    x:Math.random()*(WIDTH-28),
+    y:-32,
+    width:28,
+    height:28,
+    speed:6+Math.random(),
+    emoji:EMOJI_COIN_VARIANTS[rnd]
   });
 }
 
-/*********************************
- * Rug Logic
- *********************************/
-function spawnAndUpdateRugs() {
+/****** Rugs ******/
+let rugs=[];
+function spawnAndUpdateRugs(){
   rugSpawnTimer++;
-  if (rugSpawnTimer >= rugSpawnInterval) {
+  if(rugSpawnTimer>=rugSpawnInterval){
     spawnRug();
-    rugSpawnTimer = 0;
+    rugSpawnTimer=0;
   }
-  for (let i = 0; i < rugs.length; i++) {
-    let r = rugs[i];
-    r.y += r.speed;
-    if (r.y > HEIGHT + r.height) {
-      // avoided
-      rugs.splice(i, 1);
+  for(let i=0;i<rugs.length;i++){
+    let r=rugs[i];
+    r.y+=r.speed;
+    if(r.y>HEIGHT+r.height){
+      rugs.splice(i,1);
       i--;
       rugsAvoidedCount++;
-      // after 30 rugs => halo
-      if (rugsAvoidedCount >= 30) {
+      if(rugsAvoidedCount>=30){
         spawnRedHalo();
-        rugsAvoidedCount = 0;
+        rugsAvoidedCount=0;
       }
     }
   }
 }
-function spawnRug() {
+function spawnRug(){
   rugs.push({
-    x: Math.random() * (WIDTH - 44),
-    y: -44,
-    width: 44,
-    height: 44,
-    speed: 6
+    x:Math.random()*(WIDTH-44),
+    y:-44,
+    width:44,
+    height:44,
+    speed:6
   });
 }
 
-/*********************************
- * Red Halo
- *********************************/
-function spawnAndUpdateRedHalo() {
-  if (redHalo) {
-    redHalo.y += redHalo.speed;
-    redHalo.angle += 0.1;
-    redHalo.x += Math.sin(redHalo.angle) * redHalo.amplitude;
-    if (redHalo.y > HEIGHT + redHalo.height) {
-      redHalo = null;
+/****** Red Halo ******/
+let redHalo=null;
+function spawnAndUpdateRedHalo(){
+  if(redHalo){
+    redHalo.y+=redHalo.speed;
+    redHalo.angle=(redHalo.angle||0)+0.1;
+    redHalo.x+=Math.sin(redHalo.angle)*(redHalo.amplitude||2.5);
+    if(redHalo.y>HEIGHT+redHalo.height){
+      redHalo=null;
     }
   }
 }
-function spawnRedHalo() {
-  if (!redHalo) {
-    redHalo = {
-      x: Math.random() * (WIDTH - 33),
-      y: -32,
-      width: 28,
-      height: 28,
-      speed: 4,
-      angle: 0,
-      amplitude: 2.5
+function spawnRedHalo(){
+  if(!redHalo){
+    redHalo={
+      x:Math.random()*(WIDTH-33),
+      y:-32,
+      width:28,
+      height:28,
+      speed:4,
+      angle:0,
+      amplitude:2.5
     };
   }
 }
-function activateHaloMode() {
-  haloActive = true;
-  haloTimer = 120; // 2s
-  haloCrownBuffer = 0;
-  playerEmoji = EMOJI_PLAYER_HALO;
+function activateHaloMode(){
+  haloActive=true;
+  haloTimer=120; 
+  haloCrownBuffer=0;
+  playerEmoji=EMOJI_PLAYER_HALO;
   redHaloCollected++;
 }
 
-/*********************************
- * Collisions
- *********************************/
-function checkCollisions() {
+/****** Collisions ******/
+function rectCollision(a,b){
+  return(
+    a.x< b.x+b.width &&
+    a.x+a.width> b.x &&
+    a.y< b.y+b.height &&
+    a.y+a.height> b.y
+  );
+}
+function checkCollisions(){
   // Crowns => +6.9
-  for (let i = 0; i < crowns.length; i++) {
-    if (rectCollision(player, crowns[i])) {
-      if (haloActive) {
-        haloCrownBuffer += 6.9;
+  for(let i=0;i<crowns.length;i++){
+    if(rectCollision(player,crowns[i])){
+      trackEvent(); 
+      if(haloActive){
+        haloCrownBuffer+=6.9;
       } else {
-        score += 6.9;
+        let sc=getScore(); 
+        sc+=6.9; 
+        setScore(sc);
         updatePeakScore();
       }
       crownsCollected++;
-      crowns.splice(i, 1);
+      crowns.splice(i,1); 
       i--;
     }
   }
-
-  // Coins => score=0, after 6 => lose 1 life
-  for (let i = 0; i < coins.length; i++) {
-    if (rectCollision(player, coins[i])) {
-      score = 0;
+  // Coins => score=0, after 6 => lose life
+  for(let i=0;i<coins.length;i++){
+    if(rectCollision(player,coins[i])){
+      trackEvent(); 
+      setScore(0);
       coinHits++;
-      coins.splice(i, 1);
+      coins.splice(i,1);
       i--;
-      
-      if (coinHits >= 6) {
-        coinHits = 0;
-        // lose life => game over if 0
+
+      if(coinHits>=6){
+        coinHits=0;
         player.lives--;
-        if (player.lives <= 0) {
+        if(player.lives<=0){
           endGame();
           return;
         }
       }
     }
   }
-
   // Rugs => lose 1 life, if not lethal => score=0
-  for (let i = 0; i < rugs.length; i++) {
-    if (rectCollision(player, rugs[i])) {
-      if (player.lives > 1) {
-        score = 0;
+  for(let i=0;i<rugs.length;i++){
+    if(rectCollision(player,rugs[i])){
+      trackEvent(); 
+      if(player.lives>1){
+        setScore(0);
       }
       player.lives--;
-      rugs.splice(i, 1);
+      rugs.splice(i,1);
       i--;
-      if (player.lives <= 0) {
+      if(player.lives<=0){
         endGame();
         return;
       }
     }
   }
-
-  // Red Halo => halo mode
-  if (redHalo && rectCollision(player, redHalo)) {
-    redHalo = null;
+  // Red Halo
+  if(redHalo && rectCollision(player,redHalo)){
+    redHalo=null;
     activateHaloMode();
   }
 }
 
-/*********************************
- * Draw & Update
- *********************************/
-function updatePeakScore() {
-  if (score > peakScore) {
-    peakScore = score;
-  }
-}
-function drawEverything() {
-  drawPlayer();
-  drawCrowns();
-  drawCoins();
-  drawRugs();
-  drawRedHalo();
-}
-function drawPlayer() {
-  drawEmoji(playerEmoji, player.x, player.y, player.width);
-}
-function drawCrowns() {
-  crowns.forEach(c => drawEmoji("👑", c.x, c.y, c.width));
-}
-function drawCoins() {
-  coins.forEach(coin => drawEmoji(coin.emoji, coin.x, coin.y, coin.width));
-}
-function drawRugs() {
-  rugs.forEach(rug => drawEmoji("🧻", rug.x, rug.y, rug.width));
-}
-function drawRedHalo() {
-  if (redHalo) {
-    drawEmoji("⭕", redHalo.x, redHalo.y, redHalo.width);
-  }
-}
-function drawEmoji(emoji, x, y, size) {
-  ctx.font = `${size}px sans-serif`;
-  ctx.textBaseline = "top";
-  ctx.fillText(emoji, x, y);
-}
-function rectCollision(a, b) {
-  return (
-    a.x < b.x + b.width &&
-    a.x + a.width > b.x &&
-    a.y < b.y + b.height &&
-    a.y + a.height > b.y
-  );
-}
-function updateUI() {
-  document.getElementById('livesDisplay').textContent = 'Lives: ' + player.lives;
-  document.getElementById('scoreDisplay').textContent = 'Score: ' + Math.floor(score);
+/*******************************************************
+ * 6) Rate-based checks – each “score” event calls trackEvent()
+ *   see above (in checkCollisions => trackEvent())
+ *******************************************************/
+function trackEvent(){
+  eventCount++;
+  const elapsedSec=(Date.now()-startTime)/1000;
+  // if too many events => suspicious, etc.
 }
 
-/*********************************
+/*******************************************************
+ * Score Helpers
+ *******************************************************/
+function getScoreDecoded(){
+  return decodeVal(_encScore);
+}
+function updatePeakScore(){
+  let sc=getScoreDecoded();
+  if(sc>peakScore) peakScore=sc;
+}
+
+/*******************************************************
+ * Final Render / UI
+ *******************************************************/
+function drawEverything(){
+  // draw the player
+  drawEmoji(playerEmoji,player.x,player.y,player.width);
+  // draw crowns
+  crowns.forEach(c=>drawEmoji("👑",c.x,c.y,c.width));
+  // draw coins
+  coins.forEach(coin=>drawEmoji(coin.emoji,coin.x,coin.y,coin.width));
+  // draw rugs
+  rugs.forEach(r=>drawEmoji("🧻",r.x,r.y,r.width));
+  // red halo
+  if(redHalo) drawEmoji("⭕",redHalo.x,redHalo.y,redHalo.width);
+}
+function drawEmoji(emoji,x,y,size){
+  ctx.font=`${size}px sans-serif`;
+  ctx.textBaseline="top";
+  ctx.fillText(emoji,x,y);
+}
+
+function updateUI(){
+  document.getElementById('livesDisplay').textContent="Lives: "+player.lives;
+  document.getElementById('scoreDisplay').textContent="Score: "+Math.floor(getScoreDecoded());
+}
+
+/*******************************************************
  * End Game
- *********************************/
-function endGame() {
-  gameOver = true;
-  updatePeakScore();  // finalize peak if we have leftover halo
+ *******************************************************/
+function endGame(){
+  gameOver=true;
+  updatePeakScore(); 
+  document.getElementById('finalScoreValue').textContent=Math.floor(getScoreDecoded());
+  document.getElementById('peakScoreValue').textContent=Math.floor(peakScore);
 
-  document.getElementById('finalScoreValue').textContent = Math.floor(score);
-  document.getElementById('peakScoreValue').textContent = Math.floor(peakScore);
-
-  const statsText = `
+  const statsText=`
     Crowns Collected: ${crownsCollected}<br>
     Rugs Avoided: ${rugsAvoidedCount}<br>
     Red Halos Collected: ${redHaloCollected}
   `;
-  document.getElementById('endStats').innerHTML = statsText;
+  document.getElementById('endStats').innerHTML=statsText;
 
-  // Build "Share on X" link
-  const finalScore = Math.floor(score);
-  const peak = Math.floor(peakScore);
-  const tweetText = `I just played PumpKing!
+  // Build "Share on X"
+  let finalScore=Math.floor(getScoreDecoded());
+  let peak=Math.floor(peakScore);
+  let tweetText=`I just played PumpKing!
 Final: ${finalScore}, Peak: ${peak}
 Crowns: ${crownsCollected}, Avoided Rugs: ${rugsAvoidedCount}, Halos: ${redHaloCollected}.
 Try it out! #CrownCollectorGame`;
+  let shareUrl=`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
+  document.getElementById('shareXLink').href=shareUrl;
 
-  const shareUrl = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(tweetText);
-  document.getElementById('shareXLink').href = shareUrl;
-
-  document.getElementById('gameOverScreen').style.display = 'flex';
+  document.getElementById('gameOverScreen').style.display='flex';
 }
 
-function restartGame() {
-  document.getElementById('gameOverScreen').style.display = 'none';
+function restartGame(){
+  document.getElementById('gameOverScreen').style.display='none';
   startGame();
 }
+
+/*******************************************************
+ * 7) Freed dev code – e.g. tracking event rate
+ *******************************************************/
+let eventCount=0;
+let startTime=Date.now();
+
 </script>
 </body>
 </html>
