@@ -166,14 +166,12 @@
 
 <script>
 /*
-  Crown Collector – Optimized Version with Peak Score, Total Rugs Avoided, and X Sharing
+  Crown Collector – Smooth Version with Total Rugs Avoided
 */
 
 // Constants
 const CANVAS_WIDTH = 666;
 const CANVAS_HEIGHT = 1184;
-const FPS = 60;
-const FRAME_TIME = 1000 / FPS;
 
 // Canvas & Context with Error Handling
 const canvas = document.getElementById('gameCanvas');
@@ -184,7 +182,7 @@ try {
 } catch (error) {
   console.error('Canvas initialization failed:', error);
   alert('Your browser does not support this game. Please use a modern browser.');
-  throw error; // Stop execution if canvas fails
+  throw error;
 }
 
 // Game Variables
@@ -220,7 +218,6 @@ let difficultyUp = false;
 let haloActive = false;
 let haloTimer = 0;
 let haloCrownBuffer = 0;
-let lastFrame = performance.now();
 
 // Emojis
 const EMOJI_PLAYER_NORMAL = "🎃";
@@ -307,15 +304,8 @@ function startGame() {
 }
 
 // Main Game Loop
-function updateGame(timestamp) {
+function updateGame() {
   if (gameOver) return;
-
-  // Frame rate capping
-  if (timestamp - lastFrame < FRAME_TIME) {
-    requestAnimationFrame(updateGame);
-    return;
-  }
-  lastFrame = timestamp;
 
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
   handleInput();
@@ -360,18 +350,22 @@ function handleInput() {
   player.x = Math.max(0, Math.min(CANVAS_WIDTH - player.width, player.x));
 }
 
-// Object Management
+// Object Management (Reverted to Original Loop-and-Splice)
 function spawnAndUpdateCrowns() {
   crownSpawnTimer++;
   if (crownSpawnTimer >= crownSpawnInterval) {
     spawnCrown();
     crownSpawnTimer = 0;
   }
-  crowns = crowns.filter(c => {
+  for (let i = 0; i < crowns.length; i++) {
+    let c = crowns[i];
     if (haloActive) pullCrownToPlayer(c);
     else c.y += c.speed;
-    return c.y <= CANVAS_HEIGHT + c.height;
-  });
+    if (c.y > CANVAS_HEIGHT + c.height) {
+      crowns.splice(i, 1);
+      i--;
+    }
+  }
 }
 
 function spawnCrown() {
@@ -397,10 +391,13 @@ function spawnAndUpdateCoins() {
     spawnCoin();
     coinSpawnTimer = 0;
   }
-  coins = coins.filter(c => {
-    c.y += c.speed;
-    return c.y <= CANVAS_HEIGHT + c.height;
-  });
+  for (let i = 0; i < coins.length; i++) {
+    coins[i].y += coins[i].speed;
+    if (coins[i].y > CANVAS_HEIGHT + coins[i].height) {
+      coins.splice(i, 1);
+      i--;
+    }
+  }
 }
 
 function spawnCoin() {
@@ -421,7 +418,8 @@ function spawnAndUpdateRugs() {
     spawnRug();
     rugSpawnTimer = 0;
   }
-  rugs = rugs.filter(r => {
+  for (let i = 0; i < rugs.length; i++) {
+    let r = rugs[i];
     r.y += r.speed;
     if (r.y > CANVAS_HEIGHT + r.height) {
       rugsAvoidedCount++;
@@ -430,10 +428,10 @@ function spawnAndUpdateRugs() {
         spawnRedHalo();
         rugsAvoidedCount = 0;
       }
-      return false;
+      rugs.splice(i, 1);
+      i--;
     }
-    return true;
-  });
+  }
 }
 
 function spawnRug() {
@@ -471,56 +469,56 @@ function spawnRedHalo() {
 
 function activateHaloMode() {
   haloActive = true;
-  haloTimer = 120; // 2s at 60 FPS
+  haloTimer = 120; // Approx 2s
   haloCrownBuffer = 0;
   playerEmoji = EMOJI_PLAYER_HALO;
   redHaloCollected++;
 }
 
-// Collision Detection
+// Collision Detection (Reverted to Original Loop-and-Splice)
 function checkCollisions() {
-  crowns = crowns.filter(c => {
-    if (rectCollision(player, c)) {
+  for (let i = 0; i < crowns.length; i++) {
+    if (rectCollision(player, crowns[i])) {
       if (haloActive) haloCrownBuffer += 6.9;
       else {
         score += 6.9;
         updatePeakScore();
       }
       crownsCollected++;
-      return false;
+      crowns.splice(i, 1);
+      i--;
     }
-    return true;
-  });
+  }
 
-  coins = coins.filter(c => {
-    if (rectCollision(player, c)) {
+  for (let i = 0; i < coins.length; i++) {
+    if (rectCollision(player, coins[i])) {
       score = 0;
       coinHits++;
+      coins.splice(i, 1);
+      i--;
       if (coinHits >= 6) {
         coinHits = 0;
         player.lives--;
         if (player.lives <= 0) {
           endGame();
-          return false;
+          return;
         }
       }
-      return false;
     }
-    return true;
-  });
+  }
 
-  rugs = rugs.filter(r => {
-    if (rectCollision(player, r)) {
+  for (let i = 0; i < rugs.length; i++) {
+    if (rectCollision(player, rugs[i])) {
       if (player.lives > 1) score = 0;
       player.lives--;
+      rugs.splice(i, 1);
+      i--;
       if (player.lives <= 0) {
         endGame();
-        return false;
+        return;
       }
-      return false;
     }
-    return true;
-  });
+  }
 
   if (redHalo && rectCollision(player, redHalo)) {
     redHalo = null;
